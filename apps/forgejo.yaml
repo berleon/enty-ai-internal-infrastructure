@@ -7,7 +7,7 @@ spec:
   project: default
   source:
     repoURL: oci://code.forgejo.org/forgejo-helm
-    targetRevision: ''  # Empty means use latest
+    targetRevision: '15.0.0'  # Latest stable version
     chart: forgejo
     helm:
       # Obtain more information from https://codeberg.org/forgejo/forgejo-helm
