@@ -285,6 +285,37 @@ git add . && git commit -m "Update Tailscale credentials" && git push
 # 3. KSOPS automatically decrypts during Argo CD sync
 ```
 
+### SSH Access to Forgejo
+
+Forgejo SSH is accessible via Tailscale at IP `100.116.53.73` (hostname resolution requires MagicDNS).
+
+```bash
+# Test SSH connection
+ssh -T git@100.116.53.73
+
+# Clone repositories
+git clone git@100.116.53.73:username/repo.git
+
+# Or use SSH alias (if configured in ~/.ssh/config):
+ssh -T forgejo
+git clone forgejo:username/repo.git
+```
+
+**SSH Config (`~/.ssh/config`):**
+```ssh
+Host forgejo
+    HostName 100.116.53.73
+    User git
+    Port 22
+```
+
+**After SSH proxy pod restarts** (rare), run:
+```bash
+./scripts/configure-forgejo-ssh.sh
+```
+
+See `docs/SSH_CONFIG.md` for detailed configuration and troubleshooting.
+
 ---
 
 ## Troubleshooting
