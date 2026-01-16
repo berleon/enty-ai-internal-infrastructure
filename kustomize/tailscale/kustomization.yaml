@@ -3,11 +3,18 @@ kind: Kustomization
 
 namespace: tailscale
 
+# Include the SOPS-encrypted OAuth secret
+resources:
+  - tailscale-oauth-secret.yaml
+
 # Helm chart for the Tailscale operator
-# The values-secret.yaml file will be auto-decrypted by KSOPS before Helm runs
+# OAuth credentials will be read from the secret
 helmCharts:
   - name: tailscale-operator
     repo: https://pkgs.tailscale.com/helmcharts
     version: v1.68.1
     releaseName: tailscale-operator
-    valuesFile: values-secret.yaml
+    valuesInline:
+      oauth:
+        # These will be filled in from the secret created above
+        clientSecret: injected-by-kustomize
