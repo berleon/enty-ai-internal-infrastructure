@@ -102,6 +102,62 @@ kubectl create secret generic forgejo-runner-token \
 # (Argo CD will auto-deploy the runners)
 ```
 
+### 5. Tailscale Integration (Recommended)
+Secure, encrypted access to your cluster and Forgejo over Tailscale network.
+
+#### Prerequisites
+1. Create Tailscale OAuth credentials:
+   - Go to: https://login.tailscale.com/admin/settings/keys
+   - Create OAuth client with scopes: `Devices Core`, `Auth Keys`, `Services`
+   - Tag it with `tag:k8s-operator`
+   - Save **Client ID** and **Client Secret** (keep these private)
+
+2. Configure Tailscale policy tags (in your Tailscale policy file):
+   ```
+   "tag:k8s-operator": ["group:owners"],
+   "tag:k8s": ["group:owners"],
+   ```
+
+#### Installation
+```bash
+# Run interactive setup script (you'll be prompted for credentials locally)
+./scripts/setup-tailscale.sh
+
+# After operator is ready, expose Forgejo via Tailscale
+kubectl apply -f apps/forgejo-tailscale-ingress.yaml
+```
+
+#### Access Forgejo via Tailscale
+```bash
+# After setup, Forgejo will be accessible at:
+http://forgejo.YOUR_TAILNET_NAME
+
+# Example: http://forgejo.user.github (if your tailnet is user.github)
+
+# No port-forwarding needed - just connect to your Tailscale network from any device
+```
+
+#### Verification
+```bash
+# Check Tailscale operator status
+kubectl get pods -n tailscale
+
+# Verify operator appears in Tailscale admin console
+# Should show a machine named "tailscale-operator" tagged with tag:k8s-operator
+
+# Check Forgejo service on Tailscale
+kubectl get service forgejo-tailscale -n forgejo
+kubectl get proxy -n forgejo
+```
+
+#### Benefits
+- ✅ Secure VPN access (encrypted end-to-end)
+- ✅ No public exposure (not on the internet)
+- ✅ Access from anywhere on your Tailnet
+- ✅ Works from laptop, phone, tablet, etc.
+- ✅ No need for port-forwarding
+- ✅ No external firewall rules needed
+
 ## Deployment Flow
 
 ```
@@ -116,11 +172,17 @@ Terraform Apply (infra/)
         ├── Forgejo admin password
         └── Runner token (optional)
     ↓
+./scripts/setup-tailscale.sh (RECOMMENDED)
+    ├── Install Tailscale Kubernetes Operator
+    └── Create Tailscale service for Forgejo
+    ↓
 Argo CD monitors your GitHub repo
     ↓
 Push changes to apps/*.yaml
     ↓
 Argo CD auto-deploys (every ~3 minutes)
+    ↓
+Access via Tailscale: http://forgejo.YOUR_TAILNET
 ```
 
 ## Environment Variables for Automation
@@ -207,25 +269,36 @@ kubectl get pvc -n forgejo
    kubectl get applications -n argocd
    ```
 
-2. **Access Argo CD:**
+2. **Setup Tailscale for web access (RECOMMENDED):**
+   ```bash
+   # Run setup script (you'll be prompted for OAuth credentials)
+   ./scripts/setup-tailscale.sh
+
+   # Then expose Forgejo via Tailscale
+   kubectl apply -f apps/forgejo-tailscale-ingress.yaml
+
+   # Access at: http://forgejo.YOUR_TAILNET_NAME
+   ```
+
+3. **Alternative: Port-forward (if not using Tailscale):**
+   ```bash
+   kubectl port-forward svc/forgejo-http -n forgejo 3000:3000
+   # http://localhost:3000
+   ```
+
+4. **Access Argo CD:**
    ```bash
    kubectl port-forward svc/argocd-server -n argocd 8080:443
    # https://localhost:8080
    ```
 
-3. **Wait for Forgejo:**
+5. **First login to Forgejo:**
    ```bash
-   kubectl get pods -n forgejo -w
+   # Username: administrator
+   # Password: ChangeMe123! (⚠️ CHANGE THIS IMMEDIATELY!)
    ```
 
-4. **Access Forgejo:**
-   ```bash
-   kubectl port-forward svc/forgejo -n forgejo 3000:3000
-   # http://localhost:3000
-   # admin / ChangeMe123! (CHANGE THIS!)
-   ```
-
-5. **Push changes to deploy:**
+6. **Push changes to deploy:**
    ```bash
    # Edit apps/forgejo.yaml or apps/runner.yaml
    git push origin main

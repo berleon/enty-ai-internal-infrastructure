@@ -1,0 +1,58 @@
+# Tailscale Ingress for Forgejo
+# Exposes Forgejo via Tailscale network
+#
+# Prerequisites:
+# - Tailscale Kubernetes operator installed (run: ./scripts/setup-tailscale.sh)
+# - Forgejo service deployed in forgejo namespace
+#
+# Usage:
+# kubectl apply -f apps/forgejo-tailscale-ingress.yaml
+#
+# Access:
+# http://forgejo.TAILNET_NAME (e.g., http://forgejo.user.github)
+#
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: forgejo-tailscale
+  namespace: forgejo
+  annotations:
+    tailscale.com/expose: "true"
+    tailscale.com/hostname: "forgejo"  # Will be: forgejo.TAILNET_NAME
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: forgejo
+  ports:
+    - name: http
+      port: 80
+      targetPort: 3000
+      protocol: TCP
+  # Tailscale operator will automatically:
+  # 1. Create a Tailscale device for this service
+  # 2. Route traffic through the Tailscale network
+  # 3. Make it accessible as forgejo.TAILNET_NAME
+---
+# Alternative: Using Tailscale native resources (if needed for advanced config)
+# This demonstrates the MachineFamily resource approach
+apiVersion: tailscale.com/v1alpha1
+kind: Proxy
+metadata:
+  name: forgejo-proxy
+  namespace: forgejo
+spec:
+  proxyClass: "default"
+  # Traffic forwarding rules can be configured here
+  # See: https://tailscale.com/kb/1236/kubernetes-operator
+  rules:
+    - action: Accept
+      src:
+        - tag:k8s
+        - autogroup:members  # All Tailscale users in your network
+      dst:
+        - "*:80"   # Allow HTTP
+        - "*:443"  # Allow HTTPS (if configured)
+    - action: Reject
+      dst:
+        - "*:22"   # Block SSH access via Tailscale
