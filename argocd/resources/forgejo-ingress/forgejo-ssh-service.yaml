@@ -1,10 +1,5 @@
-# Note: Tailscale operator v1.92.5 has limitations with TCP LoadBalancer services
-# The serve configuration must be manually applied after pod creation:
-#   kubectl exec -n tailscale <proxy-pod> -- tailscale serve --bg --tcp 22 tcp://<clusterip>:22
-#
-# This configuration persists as long as the proxy pod is running.
-# For automatic configuration across restarts, this would need operator support
-# or a custom init container/job.
+# Tailscale LoadBalancer for SSH access to Forgejo
+# Note: After deployment, run: ./scripts/configure-forgejo-ssh.sh
 apiVersion: v1
 kind: Service
 metadata:
@@ -15,7 +10,8 @@ metadata:
     tailscale.com/hostname: "forgejo-ssh"
     tailscale.com/tags: "tag:k8s"
 spec:
-  type: ClusterIP
+  type: LoadBalancer
+  loadBalancerClass: tailscale
   ports:
     - name: ssh
       port: 22
