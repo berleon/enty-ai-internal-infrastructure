@@ -3,12 +3,10 @@
 # Setup Argo CD with SOPS/KSOPS for encrypted secrets management
 #
 # This script:
-# 1. Installs Argo CD from upstream manifests
-# 2. Decrypts age key from repo (requires Yubikey)
-# 3. Creates sops-age secret in cluster
-# 4. Patches repo-server with KSOPS support
-# 5. Configures kustomize plugins
-# 6. Bootstraps app-of-apps from git
+# 1. Decrypts age key from repo (requires Yubikey)
+# 2. Creates sops-age secret in cluster
+# 3. Installs Argo CD with KSOPS support via kustomize
+# 4. Bootstraps app-of-apps from git
 #
 # Usage: ./scripts/setup-argocd.sh
 #
@@ -29,22 +27,9 @@ echo -e "${BLUE}========================================${NC}"
 echo -e "${BLUE}Setting up Argo CD with SOPS/KSOPS${NC}"
 echo -e "${BLUE}========================================${NC}\n"
 
-# Step 1: Install Argo CD
-echo -e "${YELLOW}Step 1: Installing Argo CD...${NC}"
+# Step 1: Create namespace and decrypt age key
+echo -e "${YELLOW}Step 1: Creating namespace and sops-age secret...${NC}"
 kubectl create namespace argocd --dry-run=client -o yaml | kubectl apply -f -
-
-# Apply upstream Argo CD manifests
-kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
-
-# Wait for Argo CD to be ready
-echo -e "${YELLOW}Waiting for Argo CD pods to be ready...${NC}"
-kubectl wait --for=condition=available --timeout=300s deployment/argocd-server -n argocd || true
-kubectl wait --for=condition=available --timeout=300s deployment/argocd-repo-server -n argocd || true
-
-echo -e "${GREEN}✓ Argo CD installed${NC}\n"
-
-# Step 2: Decrypt age key from repo and create secret
-echo -e "${YELLOW}Step 2: Creating sops-age secret from encrypted key in repo...${NC}"
 
 AGE_KEY_ENCRYPTED="$REPO_ROOT/secrets/age-argocd.key.enc"
 
@@ -74,105 +59,21 @@ kubectl create secret generic sops-age \
 
 echo -e "${GREEN}✓ sops-age secret created${NC}\n"
 
-# Step 3: Patch repo-server to install KSOPS
-echo -e "${YELLOW}Step 3: Patching repo-server for KSOPS support...${NC}"
+# Step 2: Install Argo CD with KSOPS support using kustomize
+echo -e "${YELLOW}Step 2: Installing Argo CD with KSOPS support...${NC}"
 
-# Check if patches already exist (avoid duplicates)
-EXISTING_VOLUMES=$(kubectl get deployment argocd-repo-server -n argocd -o jsonpath='{.spec.template.spec.volumes[*].name}' 2>/dev/null || echo "")
+# Build and apply Argo CD with KSOPS patches from shared configuration
+kustomize build "$REPO_ROOT/argocd/install" | kubectl apply -f -
 
-if [[ "$EXISTING_VOLUMES" == *"custom-tools"* ]]; then
-    echo -e "${YELLOW}KSOPS patches already applied, skipping...${NC}"
-else
-    # Add the KSOPS init container and volume patches
-    kubectl patch deployment argocd-repo-server -n argocd --type='json' -p='[
-      {
-        "op": "add",
-        "path": "/spec/template/spec/volumes/-",
-        "value": {
-          "name": "custom-tools",
-          "emptyDir": {}
-        }
-      },
-      {
-        "op": "add",
-        "path": "/spec/template/spec/volumes/-",
-        "value": {
-          "name": "sops-age",
-          "secret": {
-            "secretName": "sops-age",
-            "defaultMode": 292
-          }
-        }
-      },
-      {
-        "op": "add",
-        "path": "/spec/template/spec/initContainers/-",
-        "value": {
-          "name": "install-ksops",
-          "image": "alpine:3.19",
-          "command": ["/bin/sh", "-c"],
-          "args": ["set -e; ARCH=$(uname -m); case $ARCH in x86_64) KSOPS_ARCH=x86_64; KUST_ARCH=amd64 ;; aarch64) KSOPS_ARCH=arm64; KUST_ARCH=arm64 ;; *) echo Unsupported: $ARCH; exit 1 ;; esac; echo Installing KSOPS/Kustomize for $ARCH...; wget -qO- https://github.com/viaduct-ai/kustomize-sops/releases/download/v4.4.0/ksops_4.4.0_Linux_${KSOPS_ARCH}.tar.gz | tar xz -C /custom-tools; wget -qO- https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv5.4.1/kustomize_v5.4.1_linux_${KUST_ARCH}.tar.gz | tar xz -C /custom-tools; chmod +x /custom-tools/ksops /custom-tools/kustomize; echo Done."],
-          "volumeMounts": [
-            {
-              "mountPath": "/custom-tools",
-              "name": "custom-tools"
-            }
-          ]
-        }
-      },
-      {
-        "op": "add",
-        "path": "/spec/template/spec/containers/0/env/-",
-        "value": {
-          "name": "SOPS_AGE_KEY_FILE",
-          "value": "/.config/sops/age/keys.txt"
-        }
-      },
-      {
-        "op": "add",
-        "path": "/spec/template/spec/containers/0/volumeMounts/-",
-        "value": {
-          "mountPath": "/usr/local/bin/kustomize",
-          "name": "custom-tools",
-          "subPath": "kustomize"
-        }
-      },
-      {
-        "op": "add",
-        "path": "/spec/template/spec/containers/0/volumeMounts/-",
-        "value": {
-          "mountPath": "/usr/local/bin/ksops",
-          "name": "custom-tools",
-          "subPath": "ksops"
-        }
-      },
-      {
-        "op": "add",
-        "path": "/spec/template/spec/containers/0/volumeMounts/-",
-        "value": {
-          "mountPath": "/.config/sops/age",
-          "name": "sops-age"
-        }
-      }
-    ]'
-fi
-
-echo -e "${YELLOW}Waiting for repo-server to restart with KSOPS...${NC}"
-kubectl rollout restart deployment/argocd-repo-server -n argocd
+# Wait for Argo CD to be ready
+echo -e "${YELLOW}Waiting for Argo CD pods to be ready...${NC}"
+kubectl wait --for=condition=available --timeout=300s deployment/argocd-server -n argocd || true
 kubectl wait --for=condition=available --timeout=300s deployment/argocd-repo-server -n argocd || true
 
-echo -e "${GREEN}✓ repo-server patched with KSOPS${NC}\n"
+echo -e "${GREEN}✓ Argo CD installed with KSOPS${NC}\n"
 
-# Step 4: Enable kustomize plugins in Argo CD config
-echo -e "${YELLOW}Step 4: Configuring Argo CD for kustomize plugins...${NC}"
-
-# Note: kustomize.version causes a parsing bug in Argo CD 3.2.5, so we only set buildOptions
-kubectl patch configmap argocd-cm -n argocd --type merge -p '{"data":{"kustomize.buildOptions":"--enable-alpha-plugins --enable-exec"}}' || true
-
-echo -e "${GREEN}✓ Argo CD configuration updated${NC}\n"
-
-# Step 5: Create GitHub repository secret (if needed)
-echo -e "${YELLOW}Step 5: Setting up GitHub repository credentials...${NC}"
+# Step 3: Create GitHub repository secret (if needed)
+echo -e "${YELLOW}Step 3: Setting up GitHub repository credentials...${NC}"
 
 # Check if secret already exists
 if kubectl get secret github-credentials -n argocd &>/dev/null; then
@@ -199,8 +100,8 @@ else
 fi
 echo ""
 
-# Step 6: Bootstrap Argo CD from git
-echo -e "${YELLOW}Step 6: Bootstrapping Argo CD from git repository...${NC}"
+# Step 4: Bootstrap Argo CD from git
+echo -e "${YELLOW}Step 4: Bootstrapping Argo CD from git repository...${NC}"
 
 # Apply the app-of-apps
 kubectl apply -f "$REPO_ROOT/argocd/app-of-apps.yaml"
@@ -224,7 +125,7 @@ done
 
 echo ""
 
-# Step 7: Display status
+# Step 5: Display status
 echo -e "${BLUE}========================================${NC}"
 echo -e "${BLUE}Setup Complete!${NC}"
 echo -e "${BLUE}========================================${NC}\n"

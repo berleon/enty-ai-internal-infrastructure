@@ -1,26 +1,25 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
-# Argo CD installation from upstream
+# Argo CD installation from upstream with KSOPS support
 namespace: argocd
 
 # Reference upstream Argo CD manifests
 resources:
-  - https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+  - https://raw.githubusercontent.com/argoproj/argo-cd/refs/tags/v3.2.5/manifests/install.yaml
 
-# Apply SOPS/KSOPS configuration patches
-patchesStrategicMerge:
-  - patches/repo-server-deployment.yaml
-
-patchesJson6902:
+# Apply SOPS/KSOPS configuration using shared patch
+patches:
+  # Strategic merge patch for repo-server KSOPS configuration
+  - path: patches/repo-server-ksops.yaml
+  # JSON patch for argocd-cm ConfigMap (enable kustomize plugins)
   - target:
-      group: v1
+      group: ""
       version: v1
       kind: ConfigMap
       name: argocd-cm
       namespace: argocd
     patch: |-
-      # Note: kustomize.version causes a parsing bug in Argo CD 3.2.5, so we only set buildOptions
       - op: add
         path: /data/kustomize.buildOptions
         value: "--enable-alpha-plugins --enable-exec"
