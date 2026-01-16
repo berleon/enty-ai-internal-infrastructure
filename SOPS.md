@@ -43,6 +43,37 @@ This script will:
 
 **Important**: Backup `age-argocd.key` somewhere safe. If your cluster is destroyed, you'll need this key to decrypt future secrets.
 
+#### Optional: Backup Age Key Encrypted in Git
+
+For extra security, you can encrypt the age key backup with your Yubikey and store it in git:
+
+```bash
+# Create encrypted backup of the age key
+sops secrets/age-argocd.key.enc
+
+# Paste the contents of age-argocd.key into the editor and save
+# SOPS will encrypt it with your Yubikey
+
+# Verify it's encrypted
+cat secrets/age-argocd.key.enc  # Should be unreadable
+
+# Verify you can decrypt with Yubikey
+sops -d secrets/age-argocd.key.enc  # Should show plaintext
+
+# Commit to git
+git add secrets/age-argocd.key.enc
+git commit -m "chore: backup encrypted age key for SOPS"
+git push
+```
+
+Now if your cluster is destroyed, you can restore from git:
+```bash
+sops -d secrets/age-argocd.key.enc > age-argocd.key
+chmod 600 age-argocd.key
+kubectl create secret generic sops-age -n argocd \
+    --from-file=keys.txt=age-argocd.key
+```
+
 ### 2. Encrypt Your First Secret
 
 Create the Tailscale secret with your OAuth credentials:
