@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Overview
 
 This repository contains infrastructure-as-code and deployment configuration for "Ironclad" - a self-hosted, private Kubernetes stack on Hetzner Cloud. It deploys:
-- **K3s Kubernetes cluster** on a single Hetzner Cloud node (MicroOS for auto-updates)
+- **Kubernetes cluster** on a single Hetzner Cloud node (Talos OS for immutable, auto-updating infrastructure)
 - **Forgejo** (private Git server)
 - **Forgejo Runners** (self-hosted CI/CD like GitHub Actions)
 - **Argo CD** (GitOps configuration management)
@@ -23,9 +23,9 @@ This repository contains infrastructure-as-code and deployment configuration for
 
 | Layer | Technology | Purpose |
 |-------|-----------|---------|
-| **Compute** | Hetzner Cloud (`cpx21` 3vCPU/4GB) | Cost-effective EU hosting (~€9/mo) |
-| **OS** | openSUSE MicroOS | Auto-updates + Btrfs rollback (zero maintenance) |
-| **Orchestration** | K3s | Lightweight, production-grade Kubernetes |
+| **Compute** | Hetzner Cloud (`cpx21` 3vCPU/4GB) | Cost-effective EU hosting (~€9/mo) in Nuremberg (nbg1) |
+| **OS** | Talos Linux | Immutable, auto-updating, minimal attack surface |
+| **Orchestration** | Kubernetes (via Talos) | Production-grade Kubernetes (not K3s) |
 | **Networking** | Tailscale | Private VPN mesh, no open ports, auto-HTTPS |
 | **Git Server** | Forgejo | Community fork of Gitea, stable, Actions-capable |
 | **CI/CD** | Forgejo Runners | Docker-in-Docker builds via wrenix chart |
@@ -61,8 +61,8 @@ CronJob (Daily) → Backup to S3
 
 ```
 .
-├── PLAN.md                      # Original implementation guide
-├── terraform-hetzner-readme.md  # Terraform module reference
+├── PLAN.md                      # Original implementation guide (see terraform-hetzner-readme.md for current module interface)
+├── terraform-hetzner-readme.md  # Terraform module reference (AUTHORITATIVE - current interface)
 ├── CLAUDE.md                    # This file
 ├── infra/                       # (To be created) Terraform configs
 │   ├── main.tf                  # K3s cluster on Hetzner
@@ -84,44 +84,44 @@ CronJob (Daily) → Backup to S3
 
 ### Phase 1: Infrastructure (Terraform)
 
-**Goal:** Create K3s cluster on Hetzner Cloud with MicroOS.
+**Goal:** Create K3s cluster on Hetzner Cloud with Talos OS.
 
 **Prerequisites:**
 - Hetzner Cloud account + API token
 - Terraform >= 1.0
 - `kubectl` locally
+- Packer (for building Talos OS image)
+
+**Important:** The module interface has evolved. Reference `terraform-hetzner-readme.md` in this repo for the current configuration format, not the original PLAN.md.
 
 **Steps:**
 
 ```bash
 # 1. Set up Terraform directory
-mkdir -p infra
 cd infra
 
-# 2. Clone the terraform-hcloud-kubernetes module
-git clone https://github.com/hcloud-k8s/terraform-hcloud-kubernetes.git
+# 2. Create kube.tfvars with your values
+# See kube.tfvars.example for the current interface
+cp kube.tfvars.example kube.tfvars
+# Edit kube.tfvars with:
+#   - hcloud_token: YOUR_HETZNER_API_TOKEN
+#   - cluster_name: "ironclad-forge"
+#   - control_plane_nodepools: One node cpx21 in nbg1 (Nuremberg, Germany)
+#   - worker_nodepools: [] (empty for single-node setup)
 
-# 3. Create kube.tfvars with your values
-cat > kube.tfvars <<EOF
-cluster_name              = "ironclad-forge"
-hcloud_token              = "YOUR_HETZNER_API_TOKEN"
-control_plane_count       = 1
-control_plane_server_type = "cpx21"  # 3 vCPU, 4GB RAM
-agent_node_pools          = []        # No worker nodes
-image                     = "openSUSE MicroOS"
-enable_klipper_metal_lb   = false
-allow_scheduling_on_control_plane = true
-enable_metrics_server     = true
-EOF
-
-# 4. Deploy
+# 3. Deploy
 terraform init
 terraform apply -var-file=kube.tfvars
 
-# 5. Retrieve kubeconfig
+# 4. Retrieve kubeconfig
 terraform output -raw kubeconfig > ~/.kube/config
 chmod 600 ~/.kube/config
+
+# 5. Verify cluster is ready
+kubectl get nodes
 ```
+
+**Note:** The Packer build process creates a temporary server (may appear in us-east) to build the Talos image. The actual cluster node is created in the configured location (nbg1 = Nuremberg, Germany).
 
 **Output:** Kubernetes cluster is running, accessible via SSH (use Terraform-provided IP).
 
@@ -621,9 +621,10 @@ kubectl apply -f /tmp/forgejo-rendered.yaml --dry-run=client
 
 ## Further Reading
 
-- **Terraform Module Docs:** See `terraform-hetzner-readme.md` (in this repo)
+- **Terraform Module Docs:** See `terraform-hetzner-readme.md` (in this repo) - **AUTHORITATIVE** for current module interface (uses Talos OS, not MicroOS)
 - **Hetzner Cloud Docs:** https://docs.hetzner.cloud/
 - **K3s Docs:** https://docs.k3s.io/
+- **Talos OS Docs:** https://www.talos.dev/ (modern immutable Kubernetes OS)
 - **Forgejo Docs:** https://forgejo.org/docs/latest/
 - **Argo CD Docs:** https://argo-cd.readthedocs.io/
 - **Tailscale Operator:** https://tailscale.com/kb/1236/tailscale-operator
