@@ -14,7 +14,7 @@ spec:
           serviceAccountName: forgejo-backup
           containers:
             - name: backup
-              image: bitnami/kubectl:latest
+              image: amazon/aws-cli:latest
               command:
                 - /bin/sh
                 - -c
@@ -22,6 +22,12 @@ spec:
                   set -e
                   TIMESTAMP=$(date +%Y%m%d-%H%M%S)
                   BACKUP_FILE="/tmp/forgejo-backup-${TIMESTAMP}.zip"
+
+                  # Install kubectl
+                  echo "Installing kubectl..."
+                  curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+                  chmod +x kubectl
+                  mv kubectl /usr/local/bin/
 
                   # Get Forgejo pod
                   echo "Finding Forgejo pod..."
@@ -37,10 +43,6 @@ spec:
                   kubectl exec -n forgejo $POD -- forgejo dump -f - > "$BACKUP_FILE"
 
                   echo "Backup created: $(ls -lh $BACKUP_FILE)"
-
-                  # Install AWS CLI
-                  echo "Installing AWS CLI..."
-                  apt-get update -qq && apt-get install -y -qq awscli > /dev/null 2>&1
 
                   # Upload to S3
                   echo "Uploading to S3..."
