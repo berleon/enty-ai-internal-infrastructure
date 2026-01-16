@@ -1,0 +1,78 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: forgejo-runner
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: oci://codeberg.org/wrenix/helm-charts
+    targetRevision: '0.6.0'
+    chart: forgejo-runner
+    helm:
+      releaseName: forgejo-runner
+      values: |
+        replicaCount: 1
+
+        image:
+          repository: codeberg.org/forgejo/runner
+          tag: "latest"
+          pullPolicy: Always
+
+        runner:
+          # Get this token from Forgejo:
+          # 1. Login to Forgejo as admin
+          # 2. Go to "Site Admin" > "Actions" > "Runners"
+          # 3. Click "Create Runner"
+          # 4. Copy the registration token and replace below
+          config:
+            url: "http://forgejo-http.forgejo.svc.cluster.local:3000"
+            token: "CHANGE_ME_WITH_RUNNER_REGISTRATION_TOKEN"
+            labels:
+              - "ubuntu-latest:docker://node:20-bullseye"
+              - "ubuntu-22.04:docker://node:20-bullseye"
+
+        dind:
+          # Docker-in-Docker for building container images
+          enabled: true
+          image:
+            repository: docker
+            tag: "dind"
+
+        resources:
+          requests:
+            cpu: "500m"
+            memory: "512Mi"
+          limits:
+            cpu: "2000m"
+            memory: "2Gi"
+
+        nodeSelector: {}
+        tolerations: []
+        affinity: {}
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: forgejo-runner
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+
+---
+# Note: In a proper GitOps setup, you would create the runner token as a K8s Secret
+# Example:
+# kubectl create secret generic forgejo-runner-token \
+#   -n forgejo-runner \
+#   --from-literal=token=YOUR_REGISTRATION_TOKEN
+
+# Then reference it in the Helm values:
+# runner:
+#   config:
+#     url: "http://forgejo-http.forgejo.svc.cluster.local:3000"
+#     token:
+#       existingSecret: forgejo-runner-token
+#       key: token

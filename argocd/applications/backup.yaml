@@ -1,0 +1,144 @@
+---
+# Secret for S3 credentials (create this before deploying the CronJob)
+# kubectl create secret generic s3-credentials \
+#   -n forgejo \
+#   --from-literal=access-key=YOUR_AWS_ACCESS_KEY \
+#   --from-literal=secret-key=YOUR_AWS_SECRET_KEY
+#
+# Or apply as:
+apiVersion: v1
+kind: Secret
+metadata:
+  name: s3-credentials
+  namespace: forgejo
+type: Opaque
+data:
+  # Base64 encoded values (replace with your actual credentials)
+  # access-key: YOUR_BASE64_ENCODED_ACCESS_KEY
+  # secret-key: YOUR_BASE64_ENCODED_SECRET_KEY
+  # Use: echo -n "YOUR_VALUE" | base64
+stringData:
+  access-key: "REPLACE_WITH_YOUR_S3_ACCESS_KEY"
+  secret-key: "REPLACE_WITH_YOUR_S3_SECRET_KEY"
+
+---
+# CronJob for daily Forgejo database backups to S3
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: forgejo-backup-s3
+  namespace: forgejo
+spec:
+  # Daily backup at 3 AM UTC
+  schedule: "0 3 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      ttlSecondsAfterFinished: 86400  # Keep completed jobs for 24 hours
+      template:
+        metadata:
+          labels:
+            app: forgejo-backup
+        spec:
+          serviceAccountName: forgejo-backup
+          restartPolicy: OnFailure
+          volumes:
+            - name: backup-dir
+              emptyDir: {}
+            - name: forgejo-data
+              persistentVolumeClaim:
+                claimName: data-forgejo-0  # Check exact PVC name: kubectl get pvc -n forgejo
+          initContainers:
+            - name: dump
+              image: codeberg.org/forgejo/forgejo:9.0.0
+              imagePullPolicy: IfNotPresent
+              command:
+                - /bin/sh
+              args:
+                - -c
+                - |
+                  echo "Starting Forgejo database dump..."
+                  forgejo dump -c /data/gitea/conf/app.ini -f /backup/dump.zip
+                  ls -lh /backup/
+                  echo "Dump completed successfully"
+              volumeMounts:
+                - name: forgejo-data
+                  mountPath: /data
+                - name: backup-dir
+                  mountPath: /backup
+          containers:
+            - name: upload
+              image: minio/mc:latest
+              imagePullPolicy: IfNotPresent
+              command:
+                - /bin/sh
+              args:
+                - -c
+                - |
+                  set -e
+                  TIMESTAMP=$(date +%Y-%m-%d_%H-%M-%S)
+                  BACKUP_FILE="/backup/dump.zip"
+                  BACKUP_FILENAME="forgejo-backup-${TIMESTAMP}.zip"
+
+                  echo "Configuring S3 alias..."
+                  mc alias set s3 https://s3.amazonaws.com "${ACCESS_KEY}" "${SECRET_KEY}"
+
+                  echo "Uploading backup to S3..."
+                  mc cp "${BACKUP_FILE}" "s3/YOUR_BUCKET_NAME/${BACKUP_FILENAME}"
+
+                  echo "Backup uploaded: ${BACKUP_FILENAME}"
+
+                  # Optional: Clean up old backups (keep last 30 days)
+                  # mc rm s3/YOUR_BUCKET_NAME --recursive --older-than 30d
+              env:
+                - name: ACCESS_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: s3-credentials
+                      key: access-key
+                - name: SECRET_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: s3-credentials
+                      key: secret-key
+              volumeMounts:
+                - name: backup-dir
+                  mountPath: /backup
+
+---
+# ServiceAccount for the backup job
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: forgejo-backup
+  namespace: forgejo
+
+---
+# Role for the backup job (minimal permissions)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: forgejo-backup
+  namespace: forgejo
+rules:
+  - apiGroups: [""]
+    resources: ["persistentvolumeclaims"]
+    verbs: ["get", "list"]
+
+---
+# RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: forgejo-backup
+  namespace: forgejo
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: forgejo-backup
+subjects:
+  - kind: ServiceAccount
+    name: forgejo-backup
+    namespace: forgejo
