@@ -1,4 +1,4 @@
-# Tailscale Ingress Service for Forgejo
+# Tailscale LoadBalancer Service for Forgejo
 # Exposes Forgejo via Tailscale mesh network at: forgejo.TAILNET_NAME
 #
 # Prerequisites:
@@ -13,10 +13,10 @@ metadata:
   name: forgejo-tailscale
   namespace: forgejo
   annotations:
-    tailscale.com/expose: "true"
     tailscale.com/hostname: "forgejo"
 spec:
-  type: ClusterIP
+  type: LoadBalancer
+  loadBalancerClass: tailscale
   selector:
     app.kubernetes.io/name: forgejo
   ports:
