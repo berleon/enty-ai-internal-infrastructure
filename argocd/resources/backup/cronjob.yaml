@@ -28,6 +28,10 @@ spec:
                   POD=$(kubectl get pod -n forgejo -l app.kubernetes.io/name=forgejo -o jsonpath='{.items[0].metadata.name}')
                   echo "Using pod: $POD"
 
+                  # Ensure repository directory exists (for fresh installations)
+                  echo "Checking repository directory..."
+                  kubectl exec -n forgejo $POD -- mkdir -p /data/git/gitea-repositories
+
                   # Create backup using Forgejo's built-in dump command
                   echo "Creating backup dump..."
                   kubectl exec -n forgejo $POD -- forgejo dump -f - > "$BACKUP_FILE"
