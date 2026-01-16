@@ -102,25 +102,23 @@ Create a **private GitHub/Codeberg repository** with this structure:
 your-config-repo/
 ├── apps/
 │   ├── forgejo.yaml
-│   ├── runner.yaml
 │   └── backup.yaml
 └── README.md (optional)
 ```
 
 **Copy files from this repo:**
 - `apps/forgejo.yaml` → your-config-repo/apps/forgejo.yaml
-- `apps/runner.yaml` → your-config-repo/apps/runner.yaml
 - `apps/backup.yaml` → your-config-repo/apps/backup.yaml
+
+**⚠️ SECURITY WARNING:**
+> **CRITICAL:** The default password `ChangeMe123!` in `apps/forgejo.yaml` is insecure and MUST be changed before deployment. Failing to change default credentials exposes your infrastructure to unauthorized access.
 
 **Edit the files:**
 
 `apps/forgejo.yaml`:
-- Change admin password in `gitea.admin.password`
-- Change PostgreSQL password in `postgresql.auth.password`
-
-`apps/runner.yaml`:
-- Get registration token: Forgejo UI → Site Admin → Actions → Runners → Create
-- Paste into `runner.config.token`
+- **[REQUIRED]** Change admin password in `gitea.admin.password` (default: `ChangeMe123!`)
+- **[REQUIRED]** Change PostgreSQL password in `postgresql.auth.password`
+- **[REQUIRED]** Update Tailscale domains (`DOMAIN`, `ROOT_URL`, `SSH_DOMAIN`) to match your tailnet
 
 `apps/backup.yaml`:
 - Fill S3 credentials (access-key, secret-key)

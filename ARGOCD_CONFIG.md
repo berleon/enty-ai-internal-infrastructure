@@ -4,11 +4,11 @@ This document explains how Argo CD's own configuration is managed via Kustomize 
 
 ## Overview
 
-Instead of manually patching Argo CD components, all configuration is version-controlled in `argocd/config/`:
+Instead of manually patching Argo CD components, all configuration is version-controlled in `argocd/install/`:
 
 - `kustomization.yaml` - Kustomize base that applies patches
 - `patches/argocd-cm.yaml` - Argo CD ConfigMap (kustomize settings, SOPS config)
-- `patches/repo-server-deployment.yaml` - repo-server deployment (volume mounts, env vars for SOPS/age)
+- `patches/repo-server-ksops.yaml` - repo-server deployment (volume mounts, env vars for SOPS/age)
 
 ## Applying the Configuration
 

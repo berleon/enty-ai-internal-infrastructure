@@ -3,11 +3,12 @@
 Self-hosted, fully owned Kubernetes stack on Hetzner Cloud with GitOps management via Argo CD.
 
 **Components:**
-- K3s Kubernetes cluster
+- Talos OS Kubernetes cluster
 - Forgejo (private Git server)
-- Forgejo Runners (self-hosted CI/CD)
 - Argo CD (GitOps configuration management)
 - Automated S3 backups
+
+**Note:** Forgejo Runners (self-hosted CI/CD) are not yet configured in this repository.
 
 ---
 
@@ -106,11 +107,12 @@ Create a **separate private GitHub/Codeberg repository** for your configuration.
 ```
 apps/
 ├── forgejo.yaml       # Git server
-├── runner.yaml        # CI/CD runners
 └── backup.yaml        # Automated backups
 ```
 
 Copy the YAML files from the `apps/` directory in this repo into your config repo.
+
+**Note:** Runner configuration is not yet included; CI/CD runners must be set up separately.
 
 **Then point Argo CD to your config repo:**
 
@@ -156,7 +158,7 @@ EOF
 ├── .gitignore                     # Prevent committing secrets
 │
 ├── infra/                         # Terraform infrastructure
-│   ├── main.tf                    # K3s cluster definition
+│   ├── main.tf                    # Talos OS cluster definition
 │   ├── variables.tf               # Input variables
 │   ├── outputs.tf                 # Cluster outputs (IP, kubeconfig)
 │   ├── backend.tf                 # State management config
@@ -165,7 +167,6 @@ EOF
 │
 ├── apps/                          # Argo CD application manifests
 │   ├── forgejo.yaml               # Git server (Helm chart)
-│   ├── runner.yaml                # CI/CD runners (Docker-in-Docker)
 │   └── backup.yaml                # Database backups to S3
 │
 └── scripts/                       # Helper scripts
@@ -270,9 +271,9 @@ helm install prometheus prometheus-community/kube-prometheus-stack -n monitoring
 # SSH to node (from Hetzner console)
 ssh root@<NODE_IP>
 
-# Check K3s
-systemctl status k3s
-journalctl -u k3s -n 100
+# Check Talos (requires talosctl)
+talosctl -n <NODE_IP> version
+talosctl -n <NODE_IP> logs kubelet
 ```
 
 ### Forgejo Pods Stuck in CrashLoopBackOff
@@ -357,7 +358,7 @@ k9s
 3. Check Hetzner billing
 
 ### Quarterly
-1. Update K3s version: edit `kube.tfvars` → `terraform apply`
+1. Talos OS updates automatically; verify with `talosctl version`
 2. Update Forgejo: edit `apps/forgejo.yaml` → Argo syncs
 3. Rotate Tailscale OAuth keys
 4. Review firewall rules
@@ -410,7 +411,7 @@ terraform {
 - [CLAUDE.md](CLAUDE.md) - Claude Code AI guidance
 - [PLAN.md](PLAN.md) - Original implementation plan
 - [terraform-hetzner-readme.md](terraform-hetzner-readme.md) - Terraform module docs
-- [K3s Documentation](https://docs.k3s.io/)
+- [Talos OS Documentation](https://www.talos.dev/)
 - [Forgejo Documentation](https://forgejo.org/docs/latest/)
 - [Argo CD Documentation](https://argo-cd.readthedocs.io/)
 - [Tailscale Kubernetes Operator](https://tailscale.com/kb/1236/tailscale-operator)
@@ -421,7 +422,7 @@ terraform {
 
 For issues with:
 - **Terraform/Hetzner:** See `terraform-hetzner-readme.md` or https://github.com/hcloud-k8s/terraform-hcloud-kubernetes
-- **K3s:** https://github.com/k3s-io/k3s
+- **Talos OS:** https://www.talos.dev/ or https://github.com/siderolabs/talos
 - **Forgejo:** https://codeberg.org/forgejo/forgejo
 - **Argo CD:** https://github.com/argoproj/argo-cd
 

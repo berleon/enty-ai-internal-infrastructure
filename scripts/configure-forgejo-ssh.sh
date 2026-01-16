@@ -48,9 +48,30 @@ echo "📊 Current configuration:"
 kubectl exec -n tailscale "$POD" -- tailscale serve status
 
 echo ""
-echo "🎉 Done! SSH is now accessible at:"
-echo "   git@forgejo-ssh.tail36258d.ts.net"
-echo ""
-echo "Test with:"
-echo "   ssh -T git@forgejo-ssh.tail36258d.ts.net"
-echo "   git clone git@forgejo-ssh.tail36258d.ts.net:username/repo.git"
+# Try to detect the Tailscale hostname from the service
+TAILSCALE_HOSTNAME=$(kubectl get svc forgejo-ssh-tailscale -n forgejo -o jsonpath='{.metadata.annotations.tailscale\.com/hostname}' 2>/dev/null || echo "")
+
+if [ -n "$TAILSCALE_HOSTNAME" ]; then
+  # Try to get the full domain from the tailscale pod
+  FULL_DOMAIN=$(kubectl exec -n tailscale "$POD" -- tailscale status --json 2>/dev/null | grep -o '"DNSName":"[^"]*"' | head -1 | cut -d'"' -f4 || echo "")
+
+  if [ -n "$FULL_DOMAIN" ]; then
+    # Remove trailing dot if present
+    FULL_DOMAIN=${FULL_DOMAIN%.}
+    echo "🎉 Done! SSH is now accessible at:"
+    echo "   git@$FULL_DOMAIN"
+    echo ""
+    echo "Test with:"
+    echo "   ssh -T git@$FULL_DOMAIN"
+    echo "   git clone git@$FULL_DOMAIN:username/repo.git"
+  else
+    echo "🎉 Done! SSH is now accessible at:"
+    echo "   git@$TAILSCALE_HOSTNAME.<YOUR-TAILNET>.ts.net"
+    echo ""
+    echo "⚠️  Note: Replace <YOUR-TAILNET> with your actual Tailscale tailnet ID"
+  fi
+else
+  echo "🎉 Done! SSH should now be accessible via Tailscale"
+  echo "⚠️  Could not detect hostname automatically"
+  echo "   Check your Forgejo configuration for the SSH domain"
+fi

@@ -83,25 +83,20 @@ CronJob (Daily) → Backup to S3
 │   ├── app-of-apps.yaml           # Root application (auto-discovers children)
 │   ├── applications/              # Individual app manifests
 │   │   ├── forgejo.yaml           # Forgejo Helm Application
-│   │   ├── runner.yaml            # Forgejo Runner Application
 │   │   ├── backup-resources.yaml  # Backup CronJob
 │   │   ├── tailscale-operator.yaml# Tailscale VPN operator
 │   │   ├── tailscale-oauth-secret.yaml      # Encrypted OAuth credentials
 │   │   ├── s3-backup-credentials-secret.yaml# Encrypted S3 credentials
 │   │   └── argocd-config.yaml     # Argo CD self-management
-│   ├── config/                    # Argo CD configuration patches
+│   ├── install/                   # Argo CD installation Kustomization
 │   │   ├── kustomization.yaml     # KSOPS patches for repo-server
 │   │   └── patches/
-│   │       └── repo-server-deployment.yaml
-│   ├── install/                   # Argo CD installation Kustomization
-│   │   ├── kustomization.yaml
-│   │   └── patches/
+│   │       └── repo-server-ksops.yaml
 │   └── resources/                 # Kustomize bases for secrets
 │       └── tailscale-secrets/
 │
 ├── apps/                          # Standalone app manifests
 │   ├── forgejo.yaml
-│   ├── runner.yaml
 │   ├── backup.yaml
 │   └── tailscale-secret.yaml      # Encrypted
 │
@@ -287,14 +282,17 @@ git add . && git commit -m "Update Tailscale credentials" && git push
 
 ### SSH Access to Forgejo
 
-Forgejo SSH is accessible via Tailscale at IP `100.116.53.73` (hostname resolution requires MagicDNS).
+Forgejo SSH is accessible via Tailscale. Use the hostname configured in your Forgejo application (e.g., `forgejo-ssh.tail<YOUR_TAILNET_ID>.ts.net`).
 
 ```bash
-# Test SSH connection
-ssh -T git@100.116.53.73
+# Find your Forgejo SSH hostname
+kubectl get svc forgejo-ssh-tailscale -n forgejo -o jsonpath='{.metadata.annotations.tailscale\.com/hostname}'
+
+# Test SSH connection (replace with your hostname)
+ssh -T git@forgejo-ssh.tail<YOUR_TAILNET_ID>.ts.net
 
 # Clone repositories
-git clone git@100.116.53.73:username/repo.git
+git clone git@forgejo-ssh.tail<YOUR_TAILNET_ID>.ts.net:username/repo.git
 
 # Or use SSH alias (if configured in ~/.ssh/config):
 ssh -T forgejo
@@ -304,7 +302,7 @@ git clone forgejo:username/repo.git
 **SSH Config (`~/.ssh/config`):**
 ```ssh
 Host forgejo
-    HostName 100.116.53.73
+    HostName forgejo-ssh.tail<YOUR_TAILNET_ID>.ts.net  # Replace with your actual hostname
     User git
     Port 22
 ```
@@ -313,8 +311,6 @@ Host forgejo
 ```bash
 ./scripts/configure-forgejo-ssh.sh
 ```
-
-See `docs/SSH_CONFIG.md` for detailed configuration and troubleshooting.
 
 ---
 
@@ -386,7 +382,6 @@ gpg --import <(gpg --export YOUR_KEY_ID)
 | File | Deploys |
 |------|---------|
 | `argocd/applications/forgejo.yaml` | Forgejo Git server |
-| `argocd/applications/runner.yaml` | Forgejo CI/CD runners |
 | `argocd/applications/tailscale-operator.yaml` | Tailscale VPN operator |
 | `argocd/applications/backup-resources.yaml` | S3 backup CronJob |
 

@@ -6,10 +6,10 @@ Complete guide for deploying Ironclad infrastructure using Terraform and Hetzner
 
 ## Overview
 
-This Terraform configuration uses the **terraform-hcloud-kubernetes** module to provision a K3s cluster on Hetzner Cloud. The module automates:
+This Terraform configuration uses the **terraform-hcloud-kubernetes** module (v3.x) to provision a Talos OS Kubernetes cluster on Hetzner Cloud. The module automates:
 - Server provisioning (Hetzner Cloud)
 - Network setup (VPC, firewall)
-- K3s installation and configuration
+- Talos OS installation and configuration
 - SSL certificates
 - Cloud controller manager integration
 
@@ -168,7 +168,7 @@ Type: `yes`
 
 **Waiting for:**
 1. Server boot (2 min)
-2. K3s installation (3 min)
+2. Talos OS installation (3 min)
 3. Node readiness (1-2 min)
 
 **You'll see:**
@@ -202,7 +202,7 @@ kubectl get pods -A
 kubectl cluster-info
 ```
 
-**Success!** Your K3s cluster is running.
+**Success!** Your Talos OS Kubernetes cluster is running.
 
 ---
 
@@ -244,13 +244,15 @@ Then: `terraform apply -var-file=kube.tfvars`
 
 ## Managing the Cluster
 
-### Update K3s Version
+### Update Talos/Kubernetes Version
 
 ```bash
-# Edit kube.tfvars
-kubernetes_version = "1.30"  # Change to desired version
+# Talos OS updates automatically
+# To manually verify version:
+talosctl version --nodes <NODE_IP>
 
-# Apply
+# Kubernetes version can be updated via kube.tfvars if needed
+kubernetes_version = "1.30"  # Change to desired version
 terraform apply -var-file=kube.tfvars
 ```
 
@@ -286,12 +288,12 @@ terraform apply -var-file=kube.tfvars
 # Get node IP from Terraform output
 NODE_IP=$(terraform output -raw control_plane_ip)
 
-# SSH (from Hetzner firewall rules)
-ssh -i ~/.ssh/id_rsa root@$NODE_IP
+# Access Talos node (requires talosctl, not SSH)
+talosctl -n $NODE_IP version
+talosctl -n $NODE_IP logs kubelet
 
-# Once in node, check K3s
-systemctl status k3s
-journalctl -u k3s -n 50
+# Note: Talos OS is immutable and doesn't allow SSH access
+# Use talosctl for all node interactions
 ```
 
 ---
@@ -360,9 +362,9 @@ Check Hetzner console:
 - Does it show any errors?
 
 ```bash
-# Check K3s logs (via SSH)
-ssh root@NODE_IP
-journalctl -u k3s -f  # Follow logs in real-time
+# Check Talos logs (via talosctl)
+talosctl -n NODE_IP logs kubelet -f  # Follow logs in real-time
+talosctl -n NODE_IP dmesg  # System logs
 ```
 
 ### Issue: kubectl can't connect
@@ -442,7 +444,7 @@ To use custom parameters, extend `infra/variables.tf` and pass to the module in 
 
 ## Next Steps
 
-1. ✓ Deploy K3s cluster (you are here)
+1. ✓ Deploy Talos OS Kubernetes cluster (you are here)
 2. Install Tailscale operator: see README.md
 3. Install Argo CD: see README.md
 4. Deploy Forgejo/Runners: see apps/
@@ -454,7 +456,7 @@ To use custom parameters, extend `infra/variables.tf` and pass to the module in 
 
 - **Module Repo:** https://github.com/hcloud-k8s/terraform-hcloud-kubernetes
 - **Module Registry:** https://registry.terraform.io/modules/hcloud-k8s/kubernetes/hcloud
-- **K3s Docs:** https://docs.k3s.io/
+- **Talos OS Docs:** https://www.talos.dev/
 - **Hetzner Cloud Docs:** https://docs.hetzner.cloud/
 - **Terraform Docs:** https://www.terraform.io/docs/
 

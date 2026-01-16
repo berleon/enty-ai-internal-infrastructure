@@ -40,10 +40,12 @@ spec:
 
           config:
             server:
-              DOMAIN: "forgejo.tail36258d.ts.net"
-              ROOT_URL: "https://forgejo.tail36258d.ts.net/"
+              # CHANGE THIS! Replace with your Tailscale domain
+              # Find your tailnet ID at: https://login.tailscale.com/admin/settings/general
+              DOMAIN: "forgejo.tail36258d.ts.net"  # Format: forgejo.tail<YOUR_TAILNET_ID>.ts.net
+              ROOT_URL: "https://forgejo.tail36258d.ts.net/"  # Must match DOMAIN
               HTTP_PORT: 3000
-              SSH_DOMAIN: "forgejo-ssh.tail36258d.ts.net"
+              SSH_DOMAIN: "forgejo-ssh.tail36258d.ts.net"  # Format: forgejo-ssh.tail<YOUR_TAILNET_ID>.ts.net
               SSH_PORT: 22
 
             service:
