@@ -6,22 +6,42 @@ metadata:
 spec:
   template:
     spec:
-      # Mount sops-age secret for age key access
+      # Volumes for KSOPS and age key
       volumes:
+        - name: custom-tools
+          emptyDir: {}
         - name: sops-age
           secret:
             secretName: sops-age
             defaultMode: 256
 
+      # Init container to install KSOPS
+      initContainers:
+        - name: install-ksops
+          image: viaductoss/ksops:v4.4.0
+          command: ["/bin/sh", "-c"]
+          args:
+            - echo "Installing KSOPS..."; mv ksops /custom-tools/; mv kustomize /custom-tools/; echo "Done.";
+          volumeMounts:
+            - mountPath: /custom-tools
+              name: custom-tools
+
       containers:
         - name: argocd-repo-server
-          # Add AGE_KEYFILE environment variable for KSOPS
+          # Environment variables for SOPS
           env:
             - name: AGE_KEYFILE
-              value: /tmp/age-keys/keys.txt
+              value: /.config/sops/age/keys.txt
 
-          # Mount sops-age secret at /tmp/age-keys
+          # Volume mounts for KSOPS and age key
           volumeMounts:
-            - name: sops-age
-              mountPath: /tmp/age-keys
-              readOnly: true
+            # Override default kustomize with KSOPS version
+            - mountPath: /usr/local/bin/kustomize
+              name: custom-tools
+              subPath: kustomize
+            - mountPath: /usr/local/bin/ksops
+              name: custom-tools
+              subPath: ksops
+            # Mount age key for SOPS
+            - mountPath: /.config/sops/age
+              name: sops-age

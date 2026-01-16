@@ -27,6 +27,7 @@ declare -A DOCS=(
     ["forgejo-helm-README.md"]="https://code.forgejo.org/forgejo-helm/forgejo-helm/raw/branch/main/README.md"
     ["talos-os-quickstart.md"]="https://www.talos.dev/latest/introduction/quickstart/"
     ["kubernetes-security.md"]="https://kubernetes.io/docs/concepts/security/"
+    ["kustomize-sops-README.md"]="https://raw.githubusercontent.com/viaduct-ai/kustomize-sops/refs/heads/master/README.md"
 )
 
 echo -e "${YELLOW}Documentation sources:${NC}\n"
