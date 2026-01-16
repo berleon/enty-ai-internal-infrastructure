@@ -19,24 +19,44 @@ spec:
                 - /bin/sh
                 - -c
                 - |
-                  # Get Forgejo pod
-                  POD=$(kubectl get pod -n forgejo -l app.kubernetes.io/name=forgejo -o jsonpath='{.items[0].metadata.name}')
+                  set -e
+                  TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+                  BACKUP_FILE="/tmp/forgejo-backup-${TIMESTAMP}.zip"
 
-                  # Create backup
-                  kubectl exec -n forgejo $POD -- sh -c 'sqlite3 /data/gitea.db .dump' > /tmp/backup.sql
+                  # Get Forgejo pod
+                  echo "Finding Forgejo pod..."
+                  POD=$(kubectl get pod -n forgejo -l app.kubernetes.io/name=forgejo -o jsonpath='{.items[0].metadata.name}')
+                  echo "Using pod: $POD"
+
+                  # Create backup using Forgejo's built-in dump command
+                  echo "Creating backup dump..."
+                  kubectl exec -n forgejo $POD -- forgejo dump -f - > "$BACKUP_FILE"
+
+                  echo "Backup created: $(ls -lh $BACKUP_FILE)"
+
+                  # Install AWS CLI
+                  echo "Installing AWS CLI..."
+                  apt-get update -qq && apt-get install -y -qq awscli > /dev/null 2>&1
 
                   # Upload to S3
-                  apt-get update && apt-get install -y aws-cli
-                  aws s3 cp /tmp/backup.sql s3://$S3_BUCKET/forgejo-backup-$(date +%Y%m%d-%H%M%S).sql
+                  echo "Uploading to S3..."
+                  aws s3 cp "$BACKUP_FILE" "s3://${S3_BUCKET}/forgejo-backup-${TIMESTAMP}.zip" --endpoint-url="${S3_ENDPOINT}"
+
+                  echo "Backup completed successfully: forgejo-backup-${TIMESTAMP}.zip"
 
                   # Cleanup
-                  rm -f /tmp/backup.sql
+                  rm -f "$BACKUP_FILE"
               env:
                 - name: S3_BUCKET
                   valueFrom:
                     secretKeyRef:
                       name: s3-backup-credentials
                       key: bucket
+                - name: S3_ENDPOINT
+                  valueFrom:
+                    secretKeyRef:
+                      name: s3-backup-credentials
+                      key: endpoint
                 - name: AWS_ACCESS_KEY_ID
                   valueFrom:
                     secretKeyRef:

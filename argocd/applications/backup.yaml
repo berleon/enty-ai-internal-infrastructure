@@ -8,9 +8,7 @@ spec:
   source:
     repoURL: https://github.com/berleon/enty-ai-internal-infrastructure.git
     targetRevision: main
-    path: argocd/applications
-    directory:
-      include: "backup-resources.yaml"
+    path: argocd/resources/backup
   destination:
     server: https://kubernetes.default.svc
     namespace: forgejo
