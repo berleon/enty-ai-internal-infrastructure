@@ -7,7 +7,7 @@ spec:
   project: default
   source:
     repoURL: oci://code.forgejo.org/forgejo-helm
-    targetRevision: '16.0.0'
+    targetRevision: ''  # Empty means use latest
     chart: forgejo
     helm:
       # Obtain more information from https://codeberg.org/forgejo/forgejo-helm
@@ -35,7 +35,7 @@ spec:
         gitea:
           admin:
             username: admin
-            password: "ChangeMe123!"
+            password: "REDACTED"
             email: "admin@example.com"
 
           config:

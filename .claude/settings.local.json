@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(terraform output:*)"
+      "Bash(terraform output:*)",
+      "Bash(kubectl get:*)",
+      "Bash(kubectl describe:*)"
     ]
   }
 }

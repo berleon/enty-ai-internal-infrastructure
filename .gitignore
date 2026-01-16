@@ -90,4 +90,8 @@ ehthumbs.db
 !*.example
 !*.example.*
 
+# Downloaded documentation (auto-generated, not committed)
+docs/
+*.downloaded.md
+
 terraform-hetzner-readme.md
