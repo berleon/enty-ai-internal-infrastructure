@@ -1,0 +1,77 @@
+---
+# Secret for S3 credentials (create this before deploying the CronJob)
+# kubectl create secret generic s3-credentials \
+#   -n forgejo \
+#   --from-literal=access-key=YOUR_AWS_ACCESS_KEY \
+#   --from-literal=secret-key=YOUR_AWS_SECRET_KEY
+#
+# Or apply as:
+apiVersion: v1
+kind: Secret
+metadata:
+  name: s3-credentials
+  namespace: forgejo
+type: Opaque
+data:
+  # Base64 encoded values (replace with your actual credentials)
+  # access-key: YOUR_BASE64_ENCODED_ACCESS_KEY
+  # secret-key: YOUR_BASE64_ENCODED_SECRET_KEY
+  # Use: echo -n "YOUR_VALUE" | base64
+stringData:
+  access-key: "REPLACE_WITH_YOUR_S3_ACCESS_KEY"
+  secret-key: "REPLACE_WITH_YOUR_S3_SECRET_KEY"
+
+---
+# CronJob for daily Forgejo database backups to S3
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: forgejo-backup-s3
+  namespace: forgejo
+spec:
+  schedule: "0 3 * * *"  # Daily at 3 AM UTC
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: forgejo-backup
+          containers:
+            - name: backup
+              image: bitnami/kubectl:latest
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  # Get Forgejo pod
+                  POD=$(kubectl get pod -n forgejo -l app.kubernetes.io/name=forgejo -o jsonpath='{.items[0].metadata.name}')
+
+                  # Create backup
+                  kubectl exec -n forgejo $POD -- sh -c 'sqlite3 /data/gitea.db .dump' > /tmp/backup.sql
+
+                  # Upload to S3
+                  apt-get update && apt-get install -y aws-cli
+                  aws s3 cp /tmp/backup.sql s3://$S3_BUCKET/forgejo-backup-$(date +%Y%m%d-%H%M%S).sql
+
+                  # Cleanup
+                  rm -f /tmp/backup.sql
+              env:
+                - name: S3_BUCKET
+                  valueFrom:
+                    secretKeyRef:
+                      name: s3-credentials
+                      key: bucket
+                - name: AWS_ACCESS_KEY_ID
+                  valueFrom:
+                    secretKeyRef:
+                      name: s3-credentials
+                      key: access-key
+                - name: AWS_SECRET_ACCESS_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: s3-credentials
+                      key: secret-key
+                - name: AWS_DEFAULT_REGION
+                  value: "us-east-1"
+          restartPolicy: OnFailure
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
