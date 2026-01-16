@@ -1,0 +1,73 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: forgejo
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: oci://code.forgejo.org/forgejo-helm/forgejo
+    targetRevision: '16.0.0'  # Stable version supporting Forgejo v14
+    chart: forgejo
+    helm:
+      # Obtain more information from https://codeberg.org/forgejo/forgejo-helm
+      releaseName: forgejo
+      values: |
+        replicaCount: 1
+
+        image:
+          tag: "14"
+          pullPolicy: IfNotPresent
+
+        service:
+          http:
+            type: ClusterIP
+            port: 3000
+          ssh:
+            type: ClusterIP
+            port: 22
+
+        persistence:
+          enabled: true
+          size: 50Gi
+          storageClass: hcloud-volumes
+
+        gitea:
+          admin:
+            username: administrator
+            password: "ChangeMe123!"  # CHANGE THIS! Set via: ./scripts/setup-secrets.sh
+            email: "admin@example.com"
+
+          config:
+            server:
+              DOMAIN: "forgejo.local"
+              ROOT_URL: "http://forgejo.local/"
+              HTTP_PORT: 3000
+              SSH_PORT: 22
+
+            service:
+              ENABLE_REGISTRATION: false
+
+            cache:
+              ADAPTER: memory
+
+            session:
+              PROVIDER: memory
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: forgejo
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+
+  # Health assessment rules
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/replicas
