@@ -52,3 +52,39 @@ spec:
           restartPolicy: OnFailure
   successfulJobsHistoryLimit: 3
   failedJobsHistoryLimit: 3
+
+---
+# ServiceAccount for the backup job
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: forgejo-backup
+  namespace: forgejo
+
+---
+# Role for the backup job (minimal permissions)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: forgejo-backup
+  namespace: forgejo
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "pods/exec"]
+    verbs: ["get", "list", "create"]
+
+---
+# RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: forgejo-backup
+  namespace: forgejo
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: forgejo-backup
+subjects:
+  - kind: ServiceAccount
+    name: forgejo-backup
+    namespace: forgejo
