@@ -1,0 +1,13 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Argo CD Configuration as Code
+# This kustomization manages Argo CD's own configuration to support:
+# - SOPS/KSOPS for encrypted secret handling
+# - Age key mounting for automatic decryption
+# - Kustomize plugin execution
+
+# Apply patches to existing Argo CD resources
+patchesStrategicMerge:
+  - patches/argocd-cm.yaml
+  - patches/repo-server-deployment.yaml

@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: argocd-repo-server
+  namespace: argocd
+spec:
+  template:
+    spec:
+      # Mount sops-age secret for age key access
+      volumes:
+        - name: sops-age
+          secret:
+            secretName: sops-age
+            defaultMode: 256
+
+      containers:
+        - name: argocd-repo-server
+          # Add AGE_KEYFILE environment variable for KSOPS
+          env:
+            - name: AGE_KEYFILE
+              value: /tmp/age-keys/keys.txt
+
+          # Mount sops-age secret at /tmp/age-keys
+          volumeMounts:
+            - name: sops-age
+              mountPath: /tmp/age-keys
+              readOnly: true
