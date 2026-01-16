@@ -8,7 +8,7 @@ spec:
   source:
     repoURL: https://github.com/berleon/enty-ai-internal-infrastructure.git
     targetRevision: main
-    path: argocd/applications/tailscale-operator-kustomize
+    path: argocd/resources/tailscale-operator-kustomize
   destination:
     server: https://kubernetes.default.svc
     namespace: tailscale

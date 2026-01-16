@@ -3,7 +3,7 @@ kind: Kustomization
 
 # Include the encrypted secret - SOPS will decrypt this before Kustomize processes it
 resources:
-  - ../tailscale-secret.yaml
+  - ../../applications/tailscale-secret.yaml
 
 # Helm chart with encrypted values file
 helmCharts:
@@ -13,7 +13,7 @@ helmCharts:
     releaseName: tailscale-operator
     namespace: tailscale
     # valuesFile will be decrypted by KSOPS plugin before passing to Helm
-    valuesFile: ../tailscale-values-secret.yaml
+    valuesFile: ../../applications/tailscale-values-secret.yaml
     # Additional inline values
     valuesInline:
       replicaCount: 1
