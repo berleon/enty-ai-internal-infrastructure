@@ -14,18 +14,22 @@ spec:
           serviceAccountName: forgejo-backup
           containers:
             - name: backup
-              image: amazon/aws-cli:latest
+              image: debian:bookworm-slim
               command:
-                - /bin/sh
+                - /bin/bash
                 - -c
                 - |
                   set -e
                   TIMESTAMP=$(date +%Y%m%d-%H%M%S)
                   BACKUP_FILE="/tmp/forgejo-backup-${TIMESTAMP}.zip"
 
-                  # Install kubectl
+                  # Install kubectl and aws-cli
+                  echo "Installing dependencies..."
+                  apt-get update -qq > /dev/null 2>&1
+                  apt-get install -y -qq curl awscli > /dev/null 2>&1
+
                   echo "Installing kubectl..."
-                  curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+                  curl -sLO "https://dl.k8s.io/release/$(curl -sL https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
                   chmod +x kubectl
                   mv kubectl /usr/local/bin/
 
