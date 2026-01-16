@@ -3,8 +3,7 @@ kind: Kustomization
 
 # Tailscale ingress for Forgejo
 # Exposes the Forgejo Git server via Tailscale mesh network
+# Note: Ingress requires HTTPS enabled on tailnet for TLS certificates
 
 resources:
-  - tailscale-proxyclass.yaml
-  - forgejo-tailscale-service.yaml
   - forgejo-tailscale-ingress.yaml

@@ -8,7 +8,8 @@
       "Bash(chmod:*)",
       "Bash(kubectl logs:*)",
       "Bash(kubectl exec:*)",
-      "Bash(git -C /home/leon/dev/enty/enty/external/enty-ai-internal-infrastructure log --oneline -5)"
+      "Bash(git -C /home/leon/dev/enty/enty/external/enty-ai-internal-infrastructure log --oneline -5)",
+      "Bash(curl -s --connect-timeout 5 http://100.73.78.34)"
     ]
   }
 }
