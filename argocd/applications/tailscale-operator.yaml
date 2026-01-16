@@ -6,9 +6,23 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/berleon/enty-ai-internal-infrastructure.git
-    targetRevision: main
-    path: kustomize/tailscale
+    repoURL: https://pkgs.tailscale.com/helmcharts
+    chart: tailscale-operator
+    targetRevision: v1.68.1
+    helm:
+      releaseName: tailscale-operator
+      values: |
+        oauth:
+          clientId: ""
+          clientSecret: ""
+        replicaCount: 1
+        resources:
+          limits:
+            cpu: 200m
+            memory: 256Mi
+          requests:
+            cpu: 100m
+            memory: 128Mi
   destination:
     server: https://kubernetes.default.svc
     namespace: tailscale
