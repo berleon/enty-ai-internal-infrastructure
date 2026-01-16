@@ -6,17 +6,16 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: oci://codeberg.org/wrenix/helm-charts
-    targetRevision: '0.6.0'
-    chart: forgejo-runner
+    repoURL: oci://codeberg.org/wrenix/helm-charts/forgejo-runner
+    targetRevision: '0.6.20'
     helm:
       releaseName: forgejo-runner
       values: |
         replicaCount: 1
 
         image:
-          repository: codeberg.org/forgejo/runner
-          tag: "latest"
+          registry: code.forgejo.org
+          repository: forgejo/runner
           pullPolicy: Always
 
         runner:
@@ -26,18 +25,19 @@ spec:
           # 3. Click "Create Runner"
           # 4. Copy the registration token and replace below
           config:
-            url: "http://forgejo-http.forgejo.svc.cluster.local:3000"
+            instance: "http://forgejo-http.forgejo.svc.cluster.local:3000"
             token: "CHANGE_ME_WITH_RUNNER_REGISTRATION_TOKEN"
-            labels:
-              - "ubuntu-latest:docker://node:20-bullseye"
-              - "ubuntu-22.04:docker://node:20-bullseye"
+            file:
+              runner:
+                labels:
+                  - "ubuntu-latest:docker://node:20-bullseye"
+                  - "ubuntu-22.04:docker://node:20-bullseye"
 
         dind:
-          # Docker-in-Docker for building container images
-          enabled: true
           image:
-            repository: docker
-            tag: "dind"
+            registry: docker.io
+            repository: library/docker
+            tag: "29.1.4-dind"
 
         resources:
           requests:
