@@ -102,7 +102,21 @@ kubectl create secret generic forgejo-runner-token \
 # (Argo CD will auto-deploy the runners)
 ```
 
-### 5. Tailscale Integration (Recommended)
+### 5. SOPS Secret Encryption (For Argo CD)
+Encrypt secrets in git for full GitOps workflow.
+
+Before setting up Tailscale, configure SOPS encryption so Argo CD can manage encrypted credentials:
+
+```bash
+# Setup SOPS with age key for Argo CD + your Yubikey
+./scripts/setup-sops-argocd.sh
+
+# This creates age-argocd.key (backup it!) and updates .sops.yaml
+```
+
+See `SOPS.md` for complete guide on using SOPS with your Yubikey.
+
+### 6. Tailscale Integration (Recommended)
 Secure, encrypted access to your cluster and Forgejo over Tailscale network.
 
 #### Prerequisites
@@ -120,8 +134,19 @@ Secure, encrypted access to your cluster and Forgejo over Tailscale network.
 
 #### Installation
 ```bash
-# Run interactive setup script (you'll be prompted for credentials locally)
-./scripts/setup-tailscale.sh
+# Option A: Using SOPS-encrypted secret (Recommended - Full GitOps)
+# 1. Create encrypted secret with SOPS
+sops apps/tailscale-secret.yaml  # Replace placeholders with your OAuth credentials
+
+# 2. Commit encrypted secret to git
+git add apps/tailscale-secret.yaml
+git commit -m "chore: add encrypted Tailscale OAuth credentials"
+git push origin main
+
+# 3. Argo CD will auto-apply the secret, then Tailscale operator will use it
+
+# Option B: Manual setup (if not using SOPS yet)
+./scripts/setup-tailscale.sh  # Prompts for credentials interactively
 
 # After operator is ready, expose Forgejo via Tailscale
 kubectl apply -f apps/forgejo-tailscale-ingress.yaml
@@ -172,15 +197,24 @@ Terraform Apply (infra/)
         ├── Forgejo admin password
         └── Runner token (optional)
     ↓
-./scripts/setup-tailscale.sh (RECOMMENDED)
+./scripts/setup-sops-argocd.sh (OPTIONAL - For encrypted secrets)
+    ├── Generate age key for Argo CD
+    ├── Patch Argo CD to use KSOPS plugin
+    └── Create sops-age secret in cluster
+    ↓
+Create encrypted secrets with SOPS (OPTIONAL)
+    ├── sops apps/tailscale-secret.yaml
+    └── Commit encrypted file to git
+    ↓
+./scripts/setup-tailscale.sh (OPTIONAL - For web access)
     ├── Install Tailscale Kubernetes Operator
     └── Create Tailscale service for Forgejo
     ↓
 Argo CD monitors your GitHub repo
-    ↓
-Push changes to apps/*.yaml
-    ↓
-Argo CD auto-deploys (every ~3 minutes)
+    ├── Detects new encrypted secrets
+    ├── Auto-decrypts with age key (if SOPS setup)
+    ├── Auto-deploys Tailscale operator (if in apps/)
+    └── Updates every ~3 minutes
     ↓
 Access via Tailscale: http://forgejo.YOUR_TAILNET
 ```
@@ -269,36 +303,48 @@ kubectl get pvc -n forgejo
    kubectl get applications -n argocd
    ```
 
-2. **Setup Tailscale for web access (RECOMMENDED):**
+2. **Setup SOPS for encrypted secrets (RECOMMENDED for GitOps):**
    ```bash
-   # Run setup script (you'll be prompted for OAuth credentials)
-   ./scripts/setup-tailscale.sh
+   # Setup SOPS with age key for Argo CD + your Yubikey
+   ./scripts/setup-sops-argocd.sh
 
-   # Then expose Forgejo via Tailscale
-   kubectl apply -f apps/forgejo-tailscale-ingress.yaml
-
-   # Access at: http://forgejo.YOUR_TAILNET_NAME
+   # This creates age-argocd.key (backup it!) and updates .sops.yaml
+   # See SOPS.md for full guide
    ```
 
-3. **Alternative: Port-forward (if not using Tailscale):**
+3. **Setup Tailscale for secure web access:**
+   ```bash
+   # Option A: Using encrypted SOPS secret (Full GitOps)
+   sops apps/tailscale-secret.yaml  # Replace placeholders with OAuth credentials
+   git add apps/tailscale-secret.yaml .sops.yaml
+   git commit -m "chore: add encrypted Tailscale credentials"
+   git push origin main
+   # Argo CD will auto-apply the secret and deploy Tailscale
+
+   # Option B: Manual setup (if not using SOPS)
+   ./scripts/setup-tailscale.sh  # Prompts for credentials interactively
+   kubectl apply -f apps/forgejo-tailscale-ingress.yaml
+   ```
+
+4. **Alternative: Port-forward (if not using Tailscale):**
    ```bash
    kubectl port-forward svc/forgejo-http -n forgejo 3000:3000
    # http://localhost:3000
    ```
 
-4. **Access Argo CD:**
+5. **Access Argo CD:**
    ```bash
    kubectl port-forward svc/argocd-server -n argocd 8080:443
    # https://localhost:8080
    ```
 
-5. **First login to Forgejo:**
+6. **First login to Forgejo:**
    ```bash
    # Username: administrator
    # Password: ChangeMe123! (⚠️ CHANGE THIS IMMEDIATELY!)
    ```
 
-6. **Push changes to deploy:**
+7. **Push changes to deploy:**
    ```bash
    # Edit apps/forgejo.yaml or apps/runner.yaml
    git push origin main
@@ -310,3 +356,4 @@ kubectl get pvc -n forgejo
 - `CLAUDE.md` - Architecture and workflow guide
 - `README.md` - Project overview
 - `QUICKSTART.md` - 30-minute setup walkthrough
+- `SOPS.md` - Secret encryption with SOPS and Yubikey

@@ -1,0 +1,62 @@
+# Argo CD Patch for SOPS/KSOPS Plugin Support
+#
+# This ConfigMap configures the kustomize plugin to use SOPS for decryption
+# Apply with: kubectl patch configmap argocd-cm -n argocd --patch-file argocd-sops-plugin-patch.yaml
+#
+# OR edit directly: kubectl edit configmap argocd-cm -n argocd
+#
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-cm
+  namespace: argocd
+data:
+  # Enable kustomize to work with SOPS
+  kustomize.buildOptions: "--enable-alpha-plugins"
+
+  # Configure KSOPS plugin
+  configManagementPlugins: |
+    - name: kustomize-sops
+      init:
+        command: [sh, -c]
+        args: ["echo 'kustomize-sops plugin initialized'"]
+      generate:
+        command: [sh, -c]
+        args: ["kustomize build --enable-alpha-plugins . | sops -d /dev/stdin"]
+
+---
+# Patch for argocd-repo-server deployment to mount age key
+# Apply with: kubectl patch deployment argocd-repo-server -n argocd --patch-file argocd-sops-plugin-patch.yaml
+#
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: argocd-repo-server
+  namespace: argocd
+spec:
+  template:
+    spec:
+      containers:
+        - name: argocd-repo-server
+          env:
+            # Age encryption
+            - name: AGE_KEYFILE
+              value: /tmp/age-keys/keys.txt
+
+            # GPG support (if using Yubikey)
+            - name: GNUPGHOME
+              value: /tmp/gpg-home
+
+          volumeMounts:
+            # Mount age key secret
+            - name: sops-age-keys
+              mountPath: /tmp/age-keys
+              readOnly: true
+
+      volumes:
+        # Volume for age encryption keys
+        - name: sops-age-keys
+          secret:
+            secretName: sops-age
+            defaultMode: 0400  # Read-only
