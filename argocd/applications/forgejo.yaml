@@ -40,8 +40,8 @@ spec:
 
           config:
             server:
-              DOMAIN: "forgejo.local"
-              ROOT_URL: "http://forgejo.local/"
+              DOMAIN: "forgejo.tail36258d.ts.net"
+              ROOT_URL: "https://forgejo.tail36258d.ts.net/"
               HTTP_PORT: 3000
               SSH_PORT: 22
 
