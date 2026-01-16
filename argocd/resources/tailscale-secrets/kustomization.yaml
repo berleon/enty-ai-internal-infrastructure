@@ -1,0 +1,9 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# This kustomization ONLY includes encrypted secrets
+# KSOPS plugin will decrypt them during kustomize build
+# The decrypted secrets are then available for Helm charts to reference
+
+resources:
+  - ../../applications/tailscale-oauth-secret.yaml
