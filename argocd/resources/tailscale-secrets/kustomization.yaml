@@ -6,4 +6,4 @@ kind: Kustomization
 # The decrypted secrets are then available for Helm charts to reference
 
 resources:
-  - ../../applications/tailscale-oauth-secret.yaml
+  - tailscale-oauth-secret.yaml
