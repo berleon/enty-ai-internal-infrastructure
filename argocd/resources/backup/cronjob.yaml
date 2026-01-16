@@ -29,7 +29,9 @@ spec:
                   apt-get install -y -qq curl awscli > /dev/null 2>&1
 
                   echo "Installing kubectl..."
-                  curl -sLO "https://dl.k8s.io/release/$(curl -sL https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+                  # Auto-detect architecture
+                  ARCH=$(uname -m | sed 's/x86_64/amd64/g' | sed 's/aarch64/arm64/g')
+                  curl -sLO "https://dl.k8s.io/release/$(curl -sL https://dl.k8s.io/release/stable.txt)/bin/linux/${ARCH}/kubectl"
                   chmod +x kubectl
                   mv kubectl /usr/local/bin/
 
