@@ -6,7 +6,7 @@ metadata:
   annotations:
     # Expose SSH via Tailscale
     tailscale.com/expose: "true"
-    tailscale.com/hostname: "forgejo-ssh"
+    tailscale.com/hostname: "forgejo"
     tailscale.com/tags: "tag:k8s"
 spec:
   type: LoadBalancer
