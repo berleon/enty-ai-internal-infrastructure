@@ -23,6 +23,7 @@ override.tf.json
 .env.*.local
 *.secret
 secrets/
+!secrets/age-*.key.enc  # Allow encrypted key backups
 .kube/
 
 # IDE and editor files
