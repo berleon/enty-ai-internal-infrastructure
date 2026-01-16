@@ -2,51 +2,63 @@
 # Copy this file to kube.tfvars and fill in your actual values
 # kube.tfvars is gitignored to protect secrets
 
+# REQUIRED: Your Hetzner Cloud API token
+# Get from: https://console.hetzner.cloud/projects
 hcloud_token = "YOUR_HETZNER_API_TOKEN_HERE"
 
-# Cluster configuration
-cluster_name              = "ironclad-forge"
-kubernetes_version        = "1.30"
+# Cluster name
+cluster_name = "ironclad-forge"
 
-# Single-node setup (cost-effective)
-# For high availability: control_plane_count = 3 and add agent_node_pools
-control_plane_count       = 1
-control_plane_server_type = "cpx21"  # 3 vCPU, 4GB RAM (~€9/month)
-# control_plane_server_type = "cpx31"  # 4 vCPU, 8GB RAM (~€17/month) if you need more power
-# control_plane_server_type = "cpx41"  # 8 vCPU, 16GB RAM (~€34/month) for heavy workloads
+# Cluster access method
+# - "public": accessible from internet (requires firewall rules for API)
+# - "private": only accessible via VPN/private network
+cluster_access = "public"
 
-# Leave empty for single-node cluster (no worker nodes)
-agent_node_pools = []
+# Control plane nodes (Talos-based Kubernetes)
+# Must be odd number for HA (1, 3, 5, etc.)
+# Default: 1 node for cost-effective single-node setup (~€9/month)
+control_plane_nodepools = [
+  {
+    name     = "control-plane"
+    location = "nbg1"              # Nuremberg, Germany
+    type     = "cpx21"              # 3 vCPU, 4GB RAM
+    count    = 1                    # Single node (cost-effective)
+    labels   = { "node-type" = "control-plane" }
+    taints   = []
+  }
+]
 
-# For a small cluster with workers, use:
-# agent_node_pools = [
+# For High Availability, use 3 nodes:
+# control_plane_nodepools = [
 #   {
-#     name              = "worker"
-#     server_type       = "cpx21"
-#     location          = "nbg1"  # Nuremberg, Germany
-#     count             = 1
-#     labels            = {}
-#     taints            = []
-#     swap_enabled      = false
+#     name     = "control-plane"
+#     location = "nbg1"
+#     type     = "cpx31"            # 4 vCPU, 8GB RAM (~€17/month)
+#     count    = 3
+#     labels   = { "node-type" = "control-plane" }
+#     taints   = []
 #   }
 # ]
 
-# OS Configuration
-# MicroOS auto-updates and auto-recovers via Btrfs snapshots
-image = "openSUSE MicroOS"
+# Worker nodes (optional, empty for single-node cluster)
+# Leave empty for single-node setup
+worker_nodepools = []
 
-# Load Balancer configuration
-# Set to false if using Tailscale for private access (saves €5/month)
-enable_klipper_metal_lb = false
+# For a cluster with worker nodes, uncomment:
+# worker_nodepools = [
+#   {
+#     name     = "workers"
+#     location = "nbg1"
+#     type     = "cpx21"
+#     count    = 2
+#     labels   = { "node-type" = "worker" }
+#     taints   = []
+#   }
+# ]
 
-# Allow pods to schedule on the control plane (necessary for single-node)
-allow_scheduling_on_control_plane = true
+# Kubeconfig output (leave null to skip writing to disk)
+# Output will be available via 'terraform output kubeconfig'
+cluster_kubeconfig_path = null
 
-# Enable metrics-server for kubectl top and pod autoscaling
-enable_metrics_server = true
-
-# Firewall configuration
-firewall_enabled = true
-
-# Output configuration
-kubeconfig_output_path = "~/.kube"
+# Talosconfig output (optional, for advanced talosctl management)
+cluster_talosconfig_path = null

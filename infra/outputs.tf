@@ -1,37 +1,36 @@
-output "cluster_name" {
-  description = "Name of the deployed Kubernetes cluster"
-  value       = module.kube-hetzner.cluster_name
-}
+# Module outputs from terraform-hcloud-kubernetes
+# See: https://github.com/hcloud-k8s/terraform-hcloud-kubernetes/blob/main/README.md
 
 output "kubeconfig" {
-  description = "Kubeconfig for kubectl access (saved to ~/.kube/config by default)"
-  value       = local.kubeconfig
+  description = "Kubeconfig content for kubectl access"
+  value       = module.kube-hetzner.kubeconfig
   sensitive   = true
 }
 
-output "control_plane_ip" {
-  description = "IP address of the control plane node"
-  value       = module.kube-hetzner.control_plane_public_ip
+output "talosconfig" {
+  description = "Talosconfig for talosctl access (Talos OS management)"
+  value       = try(module.kube-hetzner.talosconfig, null)
+  sensitive   = true
 }
 
-output "kubeapi_server_host" {
-  description = "Kubernetes API server host"
-  value       = module.kube-hetzner.kubeapi_server_host
-}
+output "kubeconfig_yaml" {
+  description = "Instructions for using kubeconfig"
+  value = <<-EOT
+    Your kubeconfig is ready!
 
-output "ssh_key_id" {
-  description = "SSH key ID created for cluster access"
-  value       = module.kube-hetzner.ssh_key_id
-}
+    To use it with kubectl:
+      # Option 1: Save to ~/.kube/config
+      terraform output -raw kubeconfig > ~/.kube/config
+      chmod 600 ~/.kube/config
+      kubectl get nodes
 
-output "firewall_id" {
-  description = "Hetzner Cloud Firewall ID"
-  value       = try(module.kube-hetzner.firewall_id, null)
-}
+      # Option 2: Use KUBECONFIG environment variable
+      export KUBECONFIG=$(pwd)/kubeconfig.yaml
+      terraform output -raw kubeconfig > kubeconfig.yaml
+      kubectl get nodes
 
-output "firewall_rules" {
-  description = "Firewall rules created by the module"
-  value       = "Check Hetzner Console or module documentation for details"
+    Note: The cluster uses Talos OS (modern immutable Kubernetes OS)
+  EOT
 }
 
 output "next_steps" {
@@ -39,12 +38,16 @@ output "next_steps" {
   value = <<-EOT
     Kubernetes cluster deployed successfully!
 
-    1. Verify cluster:
-       export KUBECONFIG=~/.kube/config
+    1. Save your kubeconfig:
+       terraform output -raw kubeconfig > ~/.kube/config
+       chmod 600 ~/.kube/config
+
+    2. Verify cluster is healthy:
        kubectl cluster-info
        kubectl get nodes
+       kubectl get pods -A
 
-    2. Install Tailscale operator for secure private access:
+    3. Install Tailscale operator for secure private access:
        helm repo add tailscale https://pkgs.tailscale.com/helmcharts
        helm repo update
        helm upgrade --install tailscale-operator tailscale/tailscale-operator \
@@ -52,11 +55,11 @@ output "next_steps" {
          --set-string oauth.clientId="YOUR_OAUTH_CLIENT_ID" \
          --set-string oauth.clientSecret="YOUR_OAUTH_CLIENT_SECRET"
 
-    3. Install Argo CD for GitOps:
+    4. Install Argo CD for GitOps:
        kubectl create namespace argocd
        kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
 
-    4. Configure your git repository with apps/forgejo.yaml, apps/runner.yaml, apps/backup.yaml
+    5. Deploy applications from apps/forgejo.yaml, apps/runner.yaml, apps/backup.yaml
 
     See CLAUDE.md for detailed deployment phases.
   EOT

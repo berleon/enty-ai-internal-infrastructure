@@ -5,73 +5,65 @@ variable "hcloud_token" {
 }
 
 variable "cluster_name" {
-  description = "Name of the Kubernetes cluster"
+  description = "Name of the Kubernetes cluster (lowercase, alphanumeric, hyphens)"
   type        = string
   default     = "ironclad-forge"
 }
 
-variable "kubernetes_version" {
-  description = "Kubernetes version to deploy"
+variable "control_plane_nodepools" {
+  description = "Control plane node pools configuration"
+  type = list(object({
+    name        = string
+    location    = string
+    type        = string
+    count       = optional(number, 1)
+    labels      = optional(map(string), {})
+    taints      = optional(list(string), [])
+  }))
+  default = [
+    {
+      name     = "control-plane"
+      location = "nbg1"              # Nuremberg, Germany
+      type     = "cpx21"              # 3 vCPU, 4GB RAM, ~€9/month
+      count    = 1                    # Single node for cost-effective setup
+      labels   = { "node-type" = "control-plane" }
+      taints   = []
+    }
+  ]
+}
+
+variable "worker_nodepools" {
+  description = "Worker node pools configuration (empty for single-node cluster)"
+  type = list(object({
+    name   = string
+    location = string
+    type   = string
+    count  = optional(number, 1)
+    labels = optional(map(string), {})
+    taints = optional(list(string), [])
+  }))
+  default = []
+}
+
+variable "cluster_access" {
+  description = "How the cluster is accessed externally (public or private)"
   type        = string
-  default     = "1.30"
+  default     = "public"
+
+  validation {
+    condition     = contains(["public", "private"], var.cluster_access)
+    error_message = "cluster_access must be either 'public' or 'private'"
+  }
 }
 
-variable "control_plane_count" {
-  description = "Number of control plane nodes (1 for single-node, 3+ for HA)"
-  type        = number
-  default     = 1
-}
-
-variable "control_plane_server_type" {
-  description = "Server type for control plane nodes"
+variable "cluster_kubeconfig_path" {
+  description = "Path to write kubeconfig file (if null, uses Terraform output)"
   type        = string
-  default     = "cpx21" # 3 vCPU, 4GB RAM
+  default     = null
 }
 
-variable "agent_node_pools" {
-  description = "List of worker node pools (empty list = single-node cluster)"
-  type        = list(any)
-  default     = []
-}
-
-variable "image" {
-  description = "OS image to use (MicroOS for auto-updates)"
+variable "cluster_talosconfig_path" {
+  description = "Path to write talosconfig file (if null, not written)"
   type        = string
-  default     = "openSUSE MicroOS"
-}
-
-variable "enable_klipper_metal_lb" {
-  description = "Enable Klipper Metal Load Balancer (disable if using Tailscale Ingress)"
-  type        = bool
-  default     = false
-}
-
-variable "allow_scheduling_on_control_plane" {
-  description = "Allow pods to schedule on control plane nodes"
-  type        = bool
-  default     = true
-}
-
-variable "enable_metrics_server" {
-  description = "Enable metrics-server for kubectl top and pod autoscaling"
-  type        = bool
-  default     = true
-}
-
-variable "firewall_kube_api_in_port" {
-  description = "Port for Kubernetes API (usually 6443)"
-  type        = number
-  default     = 6443
-}
-
-variable "firewall_enabled" {
-  description = "Enable Hetzner Cloud Firewall (recommended: true)"
-  type        = bool
-  default     = true
-}
-
-variable "kubeconfig_output_path" {
-  description = "Path to write kubeconfig file"
-  type        = string
-  default     = "~/.kube"
+  default     = null
 }
