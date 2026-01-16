@@ -6,3 +6,4 @@ kind: Kustomization
 
 resources:
   - forgejo-tailscale-service.yaml
+  - forgejo-tailscale-ingress.yaml
