@@ -38,7 +38,7 @@ patchesJson6902:
           name: sops-age
           secret:
             secretName: sops-age
-            defaultMode: 256
+            defaultMode: 292
       # Note: viaductoss/ksops is a scratch image without shell, so we use Alpine + wget
       # Detects architecture automatically (amd64 or arm64)
       - op: add

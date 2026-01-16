@@ -100,7 +100,7 @@ else
           "name": "sops-age",
           "secret": {
             "secretName": "sops-age",
-            "defaultMode": 256
+            "defaultMode": 292
           }
         }
       },

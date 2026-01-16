@@ -13,7 +13,8 @@ spec:
         - name: sops-age
           secret:
             secretName: sops-age
-            defaultMode: 256
+            # 292 = 0o444 (world readable) - needed because container runs as argocd user, not root
+            defaultMode: 292
 
       # Init container to install KSOPS
       # Note: viaductoss/ksops is a scratch image without shell, so we use Alpine + wget
