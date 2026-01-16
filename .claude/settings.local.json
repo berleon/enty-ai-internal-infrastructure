@@ -3,7 +3,10 @@
     "allow": [
       "Bash(terraform output:*)",
       "Bash(kubectl get:*)",
-      "Bash(kubectl describe:*)"
+      "Bash(kubectl describe:*)",
+      "WebSearch",
+      "Bash(chmod:*)",
+      "Bash(kubectl logs:*)"
     ]
   }
 }
