@@ -111,7 +111,7 @@ else
           "name": "install-ksops",
           "image": "alpine:3.19",
           "command": ["/bin/sh", "-c"],
-          "args": ["echo Installing KSOPS and Kustomize... && wget -qO- https://github.com/viaduct-ai/kustomize-sops/releases/download/v4.4.0/ksops_4.4.0_Linux_x86_64.tar.gz | tar xz -C /custom-tools && wget -qO- https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv5.4.1/kustomize_v5.4.1_linux_amd64.tar.gz | tar xz -C /custom-tools && chmod +x /custom-tools/ksops /custom-tools/kustomize && echo Done."],
+          "args": ["set -e; ARCH=$(uname -m); case $ARCH in x86_64) KSOPS_ARCH=x86_64; KUST_ARCH=amd64 ;; aarch64) KSOPS_ARCH=arm64; KUST_ARCH=arm64 ;; *) echo Unsupported: $ARCH; exit 1 ;; esac; echo Installing KSOPS/Kustomize for $ARCH...; wget -qO- https://github.com/viaduct-ai/kustomize-sops/releases/download/v4.4.0/ksops_4.4.0_Linux_${KSOPS_ARCH}.tar.gz | tar xz -C /custom-tools; wget -qO- https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv5.4.1/kustomize_v5.4.1_linux_${KUST_ARCH}.tar.gz | tar xz -C /custom-tools; chmod +x /custom-tools/ksops /custom-tools/kustomize; echo Done."],
           "volumeMounts": [
             {
               "mountPath": "/custom-tools",
@@ -166,7 +166,8 @@ echo -e "${GREEN}✓ repo-server patched with KSOPS${NC}\n"
 # Step 4: Enable kustomize plugins in Argo CD config
 echo -e "${YELLOW}Step 4: Configuring Argo CD for kustomize plugins...${NC}"
 
-kubectl patch configmap argocd-cm -n argocd --type merge -p '{"data":{"kustomize.buildOptions":"--enable-alpha-plugins --enable-exec","kustomize.version":"v5.0.0"}}' || true
+# Note: kustomize.version causes a parsing bug in Argo CD 3.2.5, so we only set buildOptions
+kubectl patch configmap argocd-cm -n argocd --type merge -p '{"data":{"kustomize.buildOptions":"--enable-alpha-plugins --enable-exec"}}' || true
 
 echo -e "${GREEN}✓ Argo CD configuration updated${NC}\n"
 

@@ -20,9 +20,7 @@ patchesJson6902:
       name: argocd-cm
       namespace: argocd
     patch: |-
+      # Note: kustomize.version causes a parsing bug in Argo CD 3.2.5, so we only set buildOptions
       - op: add
         path: /data/kustomize.buildOptions
         value: "--enable-alpha-plugins --enable-exec"
-      - op: add
-        path: /data/kustomize.version
-        value: "v5.0.0"
