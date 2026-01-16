@@ -9,13 +9,13 @@ echo "🔍 Finding Tailscale SSH proxy pod..."
 # Wait for the proxy pod to be ready
 echo "⏳ Waiting for SSH proxy pod to be ready..."
 kubectl wait --for=condition=ready pod \
-  -l tailscale.com/parent-resource=forgejo_forgejo-ssh-tailscale \
+  -l tailscale.com/parent-resource=forgejo-ssh-tailscale \
   -n tailscale \
   --timeout=60s
 
 # Get the pod name
 POD=$(kubectl get pod -n tailscale \
-  -l tailscale.com/parent-resource=forgejo_forgejo-ssh-tailscale \
+  -l tailscale.com/parent-resource=forgejo-ssh-tailscale \
   -o jsonpath='{.items[0].metadata.name}')
 
 if [ -z "$POD" ]; then
