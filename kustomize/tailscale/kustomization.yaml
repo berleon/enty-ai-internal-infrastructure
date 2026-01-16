@@ -3,9 +3,9 @@ kind: Kustomization
 
 namespace: tailscale
 
-# Include both the SOPS-encrypted secrets
+# Include the SOPS-encrypted secret
 resources:
-  - ../../apps/tailscale-secret.yaml
+  - tailscale-secret.yaml
 
 # Helm chart for the operator with encrypted values file
 helmCharts:
