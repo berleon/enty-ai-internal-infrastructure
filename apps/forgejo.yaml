@@ -1,0 +1,101 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: forgejo
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://codeberg.org/forgejo/forgejo-helm
+    targetRevision: '9.0.0'
+    chart: forgejo
+    helm:
+      # Obtain more information from https://codeberg.org/forgejo/forgejo-helm
+      releaseName: forgejo
+      values: |
+        replicaCount: 1
+
+        image:
+          repository: codeberg.org/forgejo/forgejo
+          tag: "9.0.0"
+          pullPolicy: IfNotPresent
+
+        service:
+          http:
+            type: ClusterIP
+            port: 3000
+          ssh:
+            type: ClusterIP
+            port: 22
+
+        ingress:
+          enabled: true
+          className: tailscale
+          annotations:
+            tailscale.com/tags: "tag:k8s"
+          hosts:
+            - host: git-forge
+              paths:
+                - path: /
+                  pathType: Prefix
+          tls: []
+
+        persistence:
+          enabled: true
+          size: 50Gi
+          storageClassName: hcloud-volumes
+          accessMode: ReadWriteOnce
+
+        postgresql:
+          enabled: true
+          auth:
+            username: forgejo
+            password: "CHANGE_ME_SECURE_PASSWORD"
+            database: forgejo
+          primary:
+            persistence:
+              enabled: true
+              size: 10Gi
+              storageClassName: hcloud-volumes
+
+        memcached:
+          enabled: true
+
+        gitea:
+          admin:
+            username: admin
+            # Set a secure password and save it somewhere safe!
+            password: "CHANGE_ME_SECURE_PASSWORD"
+            email: "admin@example.com"
+
+          config:
+            server:
+              DOMAIN: "git-forge.ts"
+              ROOT_URL: "https://git-forge.ts/"
+              HTTP_PORT: 3000
+              SSH_PORT: 22
+
+            service:
+              ENABLE_REGISTRATION: false
+              ALLOW_ONLY_INTERNAL_REGISTRATION: true
+
+            security:
+              INSTALL_LOCK: true
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: forgejo
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+
+  # Health assessment rules
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/replicas

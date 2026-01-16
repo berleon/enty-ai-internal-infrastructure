@@ -1,0 +1,52 @@
+# Hetzner Cloud Configuration
+# Copy this file to kube.tfvars and fill in your actual values
+# kube.tfvars is gitignored to protect secrets
+
+hcloud_token = "YOUR_HETZNER_API_TOKEN_HERE"
+
+# Cluster configuration
+cluster_name              = "ironclad-forge"
+kubernetes_version        = "1.30"
+
+# Single-node setup (cost-effective)
+# For high availability: control_plane_count = 3 and add agent_node_pools
+control_plane_count       = 1
+control_plane_server_type = "cpx21"  # 3 vCPU, 4GB RAM (~€9/month)
+# control_plane_server_type = "cpx31"  # 4 vCPU, 8GB RAM (~€17/month) if you need more power
+# control_plane_server_type = "cpx41"  # 8 vCPU, 16GB RAM (~€34/month) for heavy workloads
+
+# Leave empty for single-node cluster (no worker nodes)
+agent_node_pools = []
+
+# For a small cluster with workers, use:
+# agent_node_pools = [
+#   {
+#     name              = "worker"
+#     server_type       = "cpx21"
+#     location          = "nbg1"  # Nuremberg, Germany
+#     count             = 1
+#     labels            = {}
+#     taints            = []
+#     swap_enabled      = false
+#   }
+# ]
+
+# OS Configuration
+# MicroOS auto-updates and auto-recovers via Btrfs snapshots
+image = "openSUSE MicroOS"
+
+# Load Balancer configuration
+# Set to false if using Tailscale for private access (saves €5/month)
+enable_klipper_metal_lb = false
+
+# Allow pods to schedule on the control plane (necessary for single-node)
+allow_scheduling_on_control_plane = true
+
+# Enable metrics-server for kubectl top and pod autoscaling
+enable_metrics_server = true
+
+# Firewall configuration
+firewall_enabled = true
+
+# Output configuration
+kubeconfig_output_path = "~/.kube"

@@ -1,0 +1,93 @@
+# Terraform state and local files
+terraform.tfstate
+terraform.tfstate.*
+.terraform/
+.terraform.lock.hcl
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Terraform variables (secrets)
+# Use .example files instead
+*.tfvars
+*.tfvars.json
+!*.tfvars.example
+!*.tfvars.example.json
+
+# Environment and secrets
+.env
+.env.local
+.env.*.local
+*.secret
+secrets/
+.kube/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+.project
+.classpath
+.c9/
+*.launch
+.settingsfolder
+*.sublime-workspace
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+.venv/
+venv/
+ENV/
+env/
+
+# Local kubeconfig
+kubeconfig.yaml
+~/.kube/config
+
+# Backup files
+*.bak
+*.backup
+*.orig
+
+# Generated files
+*.pem
+*.key
+*.crt
+kubeconfig
+
+# OS specific
+Thumbs.db
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+
+# Keep example files
+!*.example
+!*.example.*
+
+terraform-hetzner-readme.md
