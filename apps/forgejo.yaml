@@ -34,8 +34,8 @@ spec:
 
         gitea:
           admin:
-            username: admin
-            password: "REDACTED"
+            username: administrator
+            password: "ChangeMe123!"  # CHANGE THIS! Set via: ./scripts/setup-secrets.sh
             email: "admin@example.com"
 
           config:
