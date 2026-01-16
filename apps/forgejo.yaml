@@ -7,7 +7,7 @@ spec:
   project: default
   source:
     repoURL: oci://code.forgejo.org/forgejo-helm/forgejo
-    targetRevision: 'v16'  # Stable version supporting Forgejo v14
+    targetRevision: '16.0.0'  # Stable version supporting Forgejo v14
     chart: forgejo
     helm:
       # Obtain more information from https://codeberg.org/forgejo/forgejo-helm
