@@ -1,0 +1,26 @@
+# Tailscale Ingress Service for Forgejo
+# Exposes Forgejo via Tailscale mesh network at: forgejo.TAILNET_NAME
+#
+# Prerequisites:
+# - Tailscale Kubernetes operator installed
+# - Forgejo deployed in forgejo namespace
+#
+# This service creates a Tailscale device that routes traffic to the Forgejo HTTP service
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: forgejo-tailscale
+  namespace: forgejo
+  annotations:
+    tailscale.com/expose: "true"
+    tailscale.com/hostname: "forgejo"
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: forgejo
+  ports:
+    - name: http
+      port: 80
+      targetPort: 3000
+      protocol: TCP
