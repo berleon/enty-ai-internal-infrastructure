@@ -3,23 +3,11 @@ kind: Kustomization
 
 namespace: tailscale
 
-# Include the SOPS-encrypted secret
-resources:
-  - tailscale-secret.yaml
-
-# Helm chart for the operator with encrypted values file
+# Helm chart for the Tailscale operator
+# The values-secret.yaml file will be auto-decrypted by KSOPS before Helm runs
 helmCharts:
   - name: tailscale-operator
     repo: https://pkgs.tailscale.com/helmcharts
     version: v1.68.1
     releaseName: tailscale-operator
-    valuesFile: values-secret.yaml  # SOPS will decrypt this before kustomize runs
-    valuesInline:
-      replicaCount: 1
-      resources:
-        limits:
-          cpu: 200m
-          memory: 256Mi
-        requests:
-          cpu: 100m
-          memory: 128Mi
+    valuesFile: values-secret.yaml
