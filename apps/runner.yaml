@@ -21,13 +21,13 @@ spec:
 
         runner:
           # Get this token from Forgejo:
-          # 1. Login to https://git-forge.ts.net as admin
+          # 1. Login to Forgejo as admin
           # 2. Go to "Site Admin" > "Actions" > "Runners"
           # 3. Click "Create Runner"
           # 4. Copy the registration token and replace below
           config:
             url: "http://forgejo-http.forgejo.svc.cluster.local:3000"
-            token: "REPLACE_ME_WITH_RUNNER_REGISTRATION_TOKEN"
+            token: "CHANGE_ME_WITH_RUNNER_REGISTRATION_TOKEN"
             labels:
               - "ubuntu-latest:docker://node:20-bullseye"
               - "ubuntu-22.04:docker://node:20-bullseye"
