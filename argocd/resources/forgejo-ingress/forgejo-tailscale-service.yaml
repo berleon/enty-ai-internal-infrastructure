@@ -6,6 +6,7 @@
 # - Forgejo deployed in forgejo namespace
 #
 # This service creates a Tailscale device that routes traffic to the Forgejo HTTP service
+# Uses userspace-proxy ProxyClass to handle SNAT correctly
 
 apiVersion: v1
 kind: Service
@@ -14,6 +15,7 @@ metadata:
   namespace: forgejo
   annotations:
     tailscale.com/hostname: "forgejo"
+    tailscale.com/proxy-class: "userspace-proxy"
 spec:
   type: LoadBalancer
   loadBalancerClass: tailscale

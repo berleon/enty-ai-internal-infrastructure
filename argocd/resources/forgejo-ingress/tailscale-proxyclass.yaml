@@ -1,0 +1,16 @@
+# ProxyClass for userspace mode to fix SNAT issue
+# The default kernel-mode DNAT doesn't SNAT return traffic,
+# causing asymmetric routing issues with Tailscale IPs.
+# Userspace mode handles proxying in-process and avoids this.
+
+apiVersion: tailscale.com/v1alpha1
+kind: ProxyClass
+metadata:
+  name: userspace-proxy
+spec:
+  statefulSet:
+    pod:
+      tailscaleContainer:
+        env:
+          - name: TS_USERSPACE
+            value: "true"

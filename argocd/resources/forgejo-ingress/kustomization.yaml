@@ -5,5 +5,6 @@ kind: Kustomization
 # Exposes the Forgejo Git server via Tailscale mesh network
 
 resources:
+  - tailscale-proxyclass.yaml
   - forgejo-tailscale-service.yaml
   - forgejo-tailscale-ingress.yaml
