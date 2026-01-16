@@ -56,7 +56,7 @@ CronJob (Daily) → Backup to S3
 1. **Single Node** (not HA): Cheaper, simpler, sufficient for private infrastructure. Data persists via Hetzner Volumes.
 2. **No Public Ports**: All access via Tailscale private VPN. SSH, API, Forgejo only accessible from your tailnet.
 3. **Talos Auto-Updates**: Node reboots automatically, survives boot failures. Zero manual OS patching.
-4. **Argo CD + GitHub**: Config lives in this repo. If K8s dies, re-apply the config repo to rebuild.
+4. **GitOps Only (Argo CD)**: Config lives in this repo. If K8s dies, re-apply Argo CD and it rebuilds itself. **NEVER use `kubectl apply` directly** - it breaks GitOps.
 5. **SOPS Dual-Key**: Yubikey for manual decryption, age key for automatic Argo CD decryption.
 
 ---
@@ -216,16 +216,18 @@ kubectl port-forward svc/argocd-server -n argocd 8080:443
 5. Configures kustomize alpha plugins
 6. Applies `app-of-apps.yaml` to bootstrap GitOps
 
-### Manual Steps (if needed)
+### Emergency Manual Steps (Cluster Recovery ONLY)
+
+**Use ONLY for disaster recovery when Argo CD is not working. Normal operations use GitOps above.**
 
 ```bash
-# Decrypt and apply a secret manually
-sops -d argocd/applications/tailscale-oauth-secret.yaml | kubectl apply -f -
-
-# Create age secret manually
+# EMERGENCY: Create age secret when Argo CD pod can't decrypt
 sops -d secrets/age-argocd.key.enc > /tmp/age.key
 kubectl create secret generic sops-age -n argocd --from-file=keys.txt=/tmp/age.key
 rm /tmp/age.key
+
+# EMERGENCY: After Argo CD is ready, git push will sync everything else
+# DO NOT use kubectl apply for normal operations
 ```
 
 ---
@@ -256,7 +258,7 @@ kubectl get applications -n argocd -w
 ./scripts/control.sh pods
 ```
 
-### GitOps Workflow
+### GitOps Workflow (ONLY WAY TO CHANGE CONFIG)
 
 ```bash
 # 1. Edit application manifest
@@ -268,6 +270,8 @@ git add . && git commit -m "Update Forgejo config" && git push
 # 3. Argo CD auto-syncs within ~3 minutes
 kubectl get applications -n argocd
 ```
+
+**DO NOT use `kubectl apply`** - it breaks GitOps. If you use `kubectl apply`, Argo CD will detect a diff and constantly resync, and the next git commit will overwrite your manual changes.
 
 ### Updating Encrypted Secrets
 
@@ -387,6 +391,54 @@ gpg --import <(gpg --export YOUR_KEY_ID)
 
 ---
 
+## GitOps Philosophy & Anti-Patterns
+
+### The Rule: Git is the Source of Truth
+
+All cluster state must be in git. The workflow is:
+
+```
+Edit local file → git commit → git push → Argo CD syncs
+```
+
+### Anti-Pattern: Direct kubectl apply
+
+❌ **DO NOT DO THIS:**
+```bash
+kubectl apply -f argocd/applications/forgejo.yaml
+kubectl patch deployment forgejo -n forgejo --patch='...'
+kubectl set image deployment/forgejo ...
+```
+
+**Why?** This breaks GitOps:
+1. Cluster state no longer matches git
+2. Argo CD detects a diff and constantly tries to fix it (thrashing)
+3. Next `git push` overwrites your manual changes
+4. No audit trail - who changed what, and when?
+5. Disaster recovery fails: if cluster dies, git doesn't have the fix
+
+✅ **DO THIS INSTEAD:**
+1. Edit the file in git
+2. `git commit` with a meaningful message
+3. `git push`
+4. Argo CD syncs automatically (watch: `kubectl get applications -n argocd -w`)
+
+This ensures:
+- Full audit trail in git
+- Reproducible deployments
+- Easy rollback with `git revert`
+- Disaster recovery from git alone
+
+### When Manual kubectl is Allowed
+
+Only during **initial cluster setup** or **disaster recovery**:
+1. `scripts/setup-argocd.sh` - bootstraps Argo CD itself
+2. Emergency age key creation when Argo CD can't decrypt (see "Emergency Manual Steps")
+
+After that, **always use git**.
+
+---
+
 ## Further Reading
 
 - **Terraform Module:** See `docs/terraform-hetzner-readme.md` for Talos/Hetzner config
@@ -398,4 +450,4 @@ gpg --import <(gpg --export YOUR_KEY_ID)
 
 ---
 
-**Last Updated:** 2026-01-16
+**Last Updated:** 2026-01-16 - Added GitOps anti-patterns section
