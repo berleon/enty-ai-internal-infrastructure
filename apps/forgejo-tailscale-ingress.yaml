@@ -34,25 +34,23 @@ spec:
   # 2. Route traffic through the Tailscale network
   # 3. Make it accessible as forgejo.TAILNET_NAME
 ---
-# Alternative: Using Tailscale native resources (if needed for advanced config)
-# This demonstrates the MachineFamily resource approach
-apiVersion: tailscale.com/v1alpha1
-kind: Proxy
+# Ingress to expose the Forgejo service via Tailscale
+# This tells Tailscale to accept traffic on port 80 and forward to the service
+apiVersion: networking.k8s.io/v1
+kind: Ingress
 metadata:
-  name: forgejo-proxy
+  name: forgejo-tailscale
   namespace: forgejo
 spec:
-  proxyClass: "default"
-  # Traffic forwarding rules can be configured here
-  # See: https://tailscale.com/kb/1236/kubernetes-operator
+  ingressClassName: tailscale
   rules:
-    - action: Accept
-      src:
-        - tag:k8s
-        - autogroup:members  # All Tailscale users in your network
-      dst:
-        - "*:80"   # Allow HTTP
-        - "*:443"  # Allow HTTPS (if configured)
-    - action: Reject
-      dst:
-        - "*:22"   # Block SSH access via Tailscale
+    - host: forgejo
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: forgejo-http
+                port:
+                  number: 3000
