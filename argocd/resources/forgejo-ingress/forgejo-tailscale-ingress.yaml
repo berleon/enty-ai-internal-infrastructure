@@ -5,14 +5,11 @@ metadata:
   namespace: forgejo
 spec:
   ingressClassName: tailscale
-  rules:
-    - host: forgejo
-      http:
-        paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: forgejo-http
-                port:
-                  number: 3000
+  defaultBackend:
+    service:
+      name: forgejo-http
+      port:
+        number: 3000
+  tls:
+    - hosts:
+        - forgejo
