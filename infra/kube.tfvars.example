@@ -20,9 +20,9 @@ cluster_access = "public"
 control_plane_nodepools = [
   {
     name     = "control-plane"
-    location = "nbg1"              # Nuremberg, Germany
-    type     = "cpx21"              # 3 vCPU, 4GB RAM
-    count    = 1                    # Single node (cost-effective)
+    location = "hel1"              # Helsinki, Finland
+    type     = "cax11"              # ARM-based, cost-effective
+    count    = 1                    # Single node
     labels   = { "node-type" = "control-plane" }
     taints   = []
   }
