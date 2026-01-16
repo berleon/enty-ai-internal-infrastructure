@@ -10,10 +10,11 @@ This repository contains infrastructure-as-code and deployment configuration for
 - **Kubernetes cluster** on a single Hetzner Cloud node (Talos OS for immutable, auto-updating infrastructure)
 - **Forgejo** (private Git server)
 - **Forgejo Runners** (self-hosted CI/CD like GitHub Actions)
-- **Argo CD** (GitOps configuration management)
+- **Argo CD** (GitOps configuration management with SOPS/KSOPS for encrypted secrets)
+- **Tailscale** (private VPN mesh for secure access)
 - **Automated S3 backups** of critical data
 
-**Philosophy:** Infrastructure as Code (Terraform), GitOps (Argo CD), secure private networking (Tailscale).
+**Philosophy:** Infrastructure as Code (Terraform), GitOps (Argo CD), secure private networking (Tailscale), encrypted secrets in git (SOPS).
 
 ---
 
@@ -29,7 +30,8 @@ This repository contains infrastructure-as-code and deployment configuration for
 | **Networking** | Tailscale | Private VPN mesh, no open ports, auto-HTTPS |
 | **Git Server** | Forgejo | Community fork of Gitea, stable, Actions-capable |
 | **CI/CD** | Forgejo Runners | Docker-in-Docker builds via wrenix chart |
-| **Configuration** | Argo CD | GitOps: cluster state matches git repo |
+| **Configuration** | Argo CD + KSOPS | GitOps with automatic SOPS decryption |
+| **Secrets** | SOPS + Age + Yubikey | Dual-key encryption (manual + automatic) |
 | **Storage** | Hetzner Volumes + S3 | Persistent storage + off-site backups |
 
 ### Data Flow
@@ -42,8 +44,9 @@ Your Laptop (Tailscale VPN)
 K8s Ingress (Tailscale)
         ↓
 Forgejo Pod → Argo CD monitors git config repo → Updates cluster
-        ↓
-Forgejo Runners (Docker builds) → Stores artifacts
+        ↓                    ↓
+Forgejo Runners      KSOPS decrypts secrets
+(Docker builds)      using age key
         ↓
 CronJob (Daily) → Backup to S3
 ```
@@ -52,8 +55,9 @@ CronJob (Daily) → Backup to S3
 
 1. **Single Node** (not HA): Cheaper, simpler, sufficient for private infrastructure. Data persists via Hetzner Volumes.
 2. **No Public Ports**: All access via Tailscale private VPN. SSH, API, Forgejo only accessible from your tailnet.
-3. **MicroOS Auto-Updates**: Node reboots automatically, survives boot failures via Btrfs snapshots. Zero manual OS patching.
-4. **Argo CD + GitHub/Codeberg**: Config lives in a **separate repo** (your "Backup Brain"). If K8s dies, re-apply the config repo to rebuild.
+3. **Talos Auto-Updates**: Node reboots automatically, survives boot failures. Zero manual OS patching.
+4. **Argo CD + GitHub**: Config lives in this repo. If K8s dies, re-apply the config repo to rebuild.
+5. **SOPS Dual-Key**: Yubikey for manual decryption, age key for automatic Argo CD decryption.
 
 ---
 
@@ -61,584 +65,336 @@ CronJob (Daily) → Backup to S3
 
 ```
 .
-├── PLAN.md                      # Original implementation guide (see terraform-hetzner-readme.md for current module interface)
-├── terraform-hetzner-readme.md  # Terraform module reference (AUTHORITATIVE - current interface)
-├── CLAUDE.md                    # This file
-├── infra/                       # (To be created) Terraform configs
-│   ├── main.tf                  # K3s cluster on Hetzner
-│   ├── kube.tfvars              # Cluster params (sensitive)
-│   └── outputs.tf               # Outputs (node IP, kubeconfig)
-├── apps/                        # (To be created) Argo CD app manifests
-│   ├── forgejo.yaml             # Forgejo Helm Application
-│   ├── runner.yaml              # Forgejo Runner Application
-│   └── backup.yaml              # Backup CronJob
-├── scripts/                     # (To be created) Helper scripts
-│   ├── control.sh               # Control center (status, UI, backup)
-│   └── dashboard.py             # Python status dashboard
-└── .gitignore                   # (To be created) Exclude secrets
+├── CLAUDE.md                      # This file - AI guidance
+├── README.md                      # Full reference guide
+├── QUICKSTART.md                  # 30-minute setup walkthrough
+├── SETUP.md                       # Detailed setup phases
+├── SOPS.md                        # SOPS encryption guide
+├── .sops.yaml                     # SOPS encryption configuration
+│
+├── infra/                         # Terraform infrastructure
+│   ├── main.tf                    # Talos K8s cluster on Hetzner
+│   ├── variables.tf               # Input parameters
+│   ├── outputs.tf                 # Cluster outputs (kubeconfig, etc.)
+│   ├── backend.tf                 # State configuration
+│   └── kube.tfvars.example        # Configuration template
+│
+├── argocd/                        # Argo CD GitOps configuration
+│   ├── app-of-apps.yaml           # Root application (auto-discovers children)
+│   ├── applications/              # Individual app manifests
+│   │   ├── forgejo.yaml           # Forgejo Helm Application
+│   │   ├── runner.yaml            # Forgejo Runner Application
+│   │   ├── backup-resources.yaml  # Backup CronJob
+│   │   ├── tailscale-operator.yaml# Tailscale VPN operator
+│   │   ├── tailscale-oauth-secret.yaml      # Encrypted OAuth credentials
+│   │   ├── s3-backup-credentials-secret.yaml# Encrypted S3 credentials
+│   │   └── argocd-config.yaml     # Argo CD self-management
+│   ├── config/                    # Argo CD configuration patches
+│   │   ├── kustomization.yaml     # KSOPS patches for repo-server
+│   │   └── patches/
+│   │       └── repo-server-deployment.yaml
+│   ├── install/                   # Argo CD installation Kustomization
+│   │   ├── kustomization.yaml
+│   │   └── patches/
+│   └── resources/                 # Kustomize bases for secrets
+│       └── tailscale-secrets/
+│
+├── apps/                          # Standalone app manifests
+│   ├── forgejo.yaml
+│   ├── runner.yaml
+│   ├── backup.yaml
+│   └── tailscale-secret.yaml      # Encrypted
+│
+├── kustomize/                     # Kustomize bases
+│   └── tailscale/
+│       └── tailscale-oauth-secret.yaml  # Encrypted
+│
+├── secrets/                       # Encrypted secrets storage
+│   └── age-argocd.key.enc         # Age key backup (encrypted with Yubikey)
+│
+├── scripts/                       # Automation scripts
+│   ├── setup-argocd.sh            # Main setup script (installs everything)
+│   ├── setup-sops-argocd.sh       # SOPS initialization
+│   ├── setup-tailscale.sh         # Tailscale setup
+│   ├── control.sh                 # Cluster CLI (status, UI, backup)
+│   ├── dashboard.py               # Python status dashboard
+│   └── get-latest-docs.sh         # Download reference docs
+│
+├── docs/                          # Reference documentation (gitignored, downloaded)
+│   ├── terraform-hetzner-readme.md
+│   ├── forgejo-helm-README.md
+│   └── kustomize-sops-README.md
+│
+└── .gitignore                     # Excludes secrets, state files
 ```
 
 ---
 
-## Deployment Phases
+## Secrets Management (SOPS)
 
-### Phase 1: Infrastructure (Terraform)
+### Overview
 
-**Goal:** Create K3s cluster on Hetzner Cloud with Talos OS.
+Secrets are encrypted with SOPS using a **dual-key system**:
+- **Yubikey (PGP)**: For manual decryption/editing by operators
+- **Age key**: For automatic decryption by Argo CD in the cluster
 
-**Prerequisites:**
-- Hetzner Cloud account + API token
-- Terraform >= 1.0
-- `kubectl` locally
-- Packer (for building Talos OS image)
+### Key Locations
 
-**Important:** The module interface has evolved. Reference `terraform-hetzner-readme.md` in this repo for the current configuration format, not the original PLAN.md.
+| Key | Location | Purpose |
+|-----|----------|---------|
+| **Age Public Key** | `.sops.yaml` | `age19lq4dtrxd5qdwkr63gpy2qfwnttu3nxlrp9rxmu659nkt4d8ld7skwj6x9` |
+| **Age Private Key (encrypted)** | `secrets/age-argocd.key.enc` | Backup, encrypted with Yubikey |
+| **Age Private Key (cluster)** | K8s Secret `sops-age` in `argocd` namespace | Used by KSOPS |
+| **Yubikey Fingerprints** | `.sops.yaml` | PGP keys for manual decryption |
 
-**Steps:**
+### Encrypted Secret Files
+
+| File | Secret Name | Purpose |
+|------|-------------|---------|
+| `apps/tailscale-secret.yaml` | `tailscale-oauth` | Tailscale OAuth credentials |
+| `argocd/applications/tailscale-oauth-secret.yaml` | `operator-oauth` | Tailscale operator |
+| `argocd/applications/s3-backup-credentials-secret.yaml` | `s3-backup-credentials` | S3 backup auth |
+| `kustomize/tailscale/tailscale-oauth-secret.yaml` | `tailscale-oauth` | Kustomize variant |
+
+### Working with Encrypted Secrets
 
 ```bash
-# 1. Set up Terraform directory
+# Edit an encrypted secret (requires Yubikey)
+sops argocd/applications/tailscale-oauth-secret.yaml
+
+# View decrypted content
+sops -d argocd/applications/tailscale-oauth-secret.yaml
+
+# Create new encrypted secret
+sops -e plaintext-secret.yaml > encrypted-secret.yaml
+
+# Encrypt in place
+sops -e -i my-secret.yaml
+```
+
+### SOPS Configuration (.sops.yaml)
+
+```yaml
+creation_rules:
+  - path_regex: '^(apps/.*-secret|kustomize/.*/.*-secret|argocd/applications/.*-secret)\.yaml$'
+    key_groups:
+      - age:
+          - age19lq4dtrxd5qdwkr63gpy2qfwnttu3nxlrp9rxmu659nkt4d8ld7skwj6x9
+        pgp:
+          - 528CFD6EA653B5EC59B701F483219063F9FC4626  # Yubikey 1
+          - EE213327AA06F51445BE63B5B4324BD440FD54E3  # Yubikey 2
+    unencrypted_regex: "^(apiVersion|metadata|kind|type|namespace|name)$"
+```
+
+---
+
+## Setup & Deployment
+
+### Quick Start
+
+```bash
+# 1. Deploy Terraform infrastructure
 cd infra
-
-# 2. Create kube.tfvars with your values
-# See kube.tfvars.example for the current interface
-cp kube.tfvars.example kube.tfvars
-# Edit kube.tfvars with:
-#   - hcloud_token: YOUR_HETZNER_API_TOKEN
-#   - cluster_name: "ironclad-forge"
-#   - control_plane_nodepools: One node cpx21 in nbg1 (Nuremberg, Germany)
-#   - worker_nodepools: [] (empty for single-node setup)
-
-# 3. Deploy
-terraform init
-terraform apply -var-file=kube.tfvars
-
-# 4. Retrieve kubeconfig
+cp kube.tfvars.example kube.tfvars  # Edit with your Hetzner token
+terraform init && terraform apply -var-file=kube.tfvars
 terraform output -raw kubeconfig > ~/.kube/config
-chmod 600 ~/.kube/config
 
-# 5. Verify cluster is ready
-kubectl get nodes
-```
+# 2. Setup Argo CD with SOPS (requires Yubikey for age key decryption)
+./scripts/setup-argocd.sh
 
-**Note:** The Packer build process creates a temporary server (may appear in us-east) to build the Talos image. The actual cluster node is created in the configured location (nbg1 = Nuremberg, Germany).
-
-**Output:** Kubernetes cluster is running, accessible via SSH (use Terraform-provided IP).
-
----
-
-### Phase 2: Tailscale VPN
-
-**Goal:** Secure private access to K3s without opening firewall ports.
-
-**Steps:**
-
-```bash
-# 1. Generate Tailscale Auth Key
-# Go to: https://login.tailscale.com/admin/settings/keys
-# Create: "tag:k8s" tag, Reusable, Ephemeral
-
-# 2. Add Tailscale Helm repo
-helm repo add tailscale https://pkgs.tailscale.com/helmcharts
-helm repo update
-
-# 3. Install Tailscale Operator
-# Requires: OAuth Client ID & Secret from Tailscale admin console
-helm upgrade --install tailscale-operator tailscale/tailscale-operator \
-  --namespace tailscale --create-namespace \
-  --set-string oauth.clientId="YOUR_OAUTH_CLIENT_ID" \
-  --set-string oauth.clientSecret="YOUR_OAUTH_CLIENT_SECRET"
-
-# 4. Verify
-kubectl get nodes  # Should work via Tailscale IP
-```
-
-**After this phase:**
-- Your laptop connects to K8s via Tailscale VPN
-- K8s API is NOT exposed to the internet
-- All pod traffic is encrypted and private
-
----
-
-### Phase 3: Argo CD (GitOps)
-
-**Goal:** Install GitOps engine that watches your config repo and auto-syncs changes.
-
-**Steps:**
-
-```bash
-# 1. Create argocd namespace and install
-kubectl create namespace argocd
-kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
-
-# 2. Access Argo UI (port-forward via Tailscale)
+# 3. Access Argo CD
 kubectl port-forward svc/argocd-server -n argocd 8080:443
-
-# 3. Open https://localhost:8080
-# Login with: admin / (get password from kubectl get secret argocd-initial-admin-secret)
-
-# 4. Create your config repository on GitHub/Codeberg (PRIVATE)
-# This repo holds: apps/forgejo.yaml, apps/runner.yaml, apps/backup.yaml
+# Open https://localhost:8080
 ```
 
-**Key:** This repo is your "Backup Brain". If K8s dies, you just re-deploy Argo and point it to this repo.
+### What setup-argocd.sh Does
 
----
+1. Installs Argo CD from upstream manifests
+2. Decrypts age key from `secrets/age-argocd.key.enc` (requires Yubikey)
+3. Creates `sops-age` K8s secret for KSOPS
+4. Patches repo-server with KSOPS plugin (viaductoss/ksops:v4.4.0)
+5. Configures kustomize alpha plugins
+6. Applies `app-of-apps.yaml` to bootstrap GitOps
 
-### Phase 4: Deploy Forgejo (App)
+### Manual Steps (if needed)
 
-**Goal:** Install private Git server via Helm + Argo CD.
-
-**File:** `apps/forgejo.yaml` (in your config repo)
-
-```yaml
-apiVersion: argoproj.io/v1alpha1
-kind: Application
-metadata:
-  name: forgejo
-  namespace: argocd
-spec:
-  project: default
-  source:
-    repoURL: 'https://codeberg.org/forgejo/forgejo-helm'
-    targetRevision: '9.0.0'
-    chart: forgejo
-    helm:
-      values: |
-        image:
-          tag: 9.0.0
-        persistence:
-          enabled: true
-          size: 50Gi
-          storageClass: hcloud-volumes  # Hetzner persistent storage
-        ingress:
-          enabled: true
-          className: tailscale          # Auto-HTTPS via Tailscale magic
-          hosts:
-            - host: git-forge
-          annotations:
-            tailscale.com/tags: "tag:k8s"
-  destination:
-    server: 'https://kubernetes.default.svc'
-    namespace: forgejo
-  syncPolicy:
-    automated:
-      prune: true
-      selfHeal: true
-    syncOptions:
-      - CreateNamespace=true
-```
-
-**Deploy via Argo:**
 ```bash
-kubectl apply -f apps/forgejo.yaml
-```
+# Decrypt and apply a secret manually
+sops -d argocd/applications/tailscale-oauth-secret.yaml | kubectl apply -f -
 
-**Access:**
-```
-https://git-forge.tailnet-name.ts.net
-```
-
----
-
-### Phase 5: CI/CD Runners
-
-**Goal:** Enable Docker builds in Forgejo (like GitHub Actions).
-
-**File:** `apps/runner.yaml` (in your config repo)
-
-```yaml
-apiVersion: argoproj.io/v1alpha1
-kind: Application
-metadata:
-  name: forgejo-runner
-  namespace: argocd
-spec:
-  project: default
-  source:
-    repoURL: 'oci://codeberg.org/wrenix/helm-charts'
-    chart: forgejo-runner
-    targetRevision: '0.6.0'
-    helm:
-      values: |
-        runner:
-          config:
-            url: "http://forgejo-http.forgejo.svc.cluster.local:3000"
-            token: "<YOUR_RUNNER_TOKEN>"  # Get from Forgejo Site Admin > Actions
-            labels:
-              - "ubuntu-latest:docker://node:20-bullseye"
-        dind:
-          enabled: true  # Docker-in-Docker for image builds
-  destination:
-    server: 'https://kubernetes.default.svc'
-    namespace: forgejo-runner
-  syncPolicy:
-    automated:
-      prune: true
-      selfHeal: true
-    syncOptions:
-      - CreateNamespace=true
-```
-
-**Steps:**
-1. Log into Forgejo as admin
-2. Go to `Site Admin > Actions > Runners > Create Runner`
-3. Copy the registration token
-4. Update `runner.yaml` with the token
-5. Commit to config repo → Argo syncs it
-
----
-
-### Phase 6: Automated Backups
-
-**Goal:** Daily dumps of Forgejo database → S3 (off-site safety net).
-
-**File:** `apps/backup.yaml` (in your config repo)
-
-```yaml
-apiVersion: batch/v1
-kind: CronJob
-metadata:
-  name: forgejo-backup-s3
-  namespace: forgejo
-spec:
-  schedule: "0 3 * * *"  # 3 AM daily
-  jobTemplate:
-    spec:
-      template:
-        spec:
-          volumes:
-            - name: backup-dir
-              emptyDir: {}
-            - name: data
-              persistentVolumeClaim:
-                claimName: data-forgejo-0  # Check exact name with 'kubectl get pvc -n forgejo'
-          initContainers:
-            - name: dump
-              image: codeberg.org/forgejo/forgejo:9.0.0
-              command: ["/bin/sh", "-c"]
-              args: ["forgejo dump -c /data/gitea/conf/app.ini -f /backup/dump.zip"]
-              volumeMounts:
-                - mountPath: /data
-                  name: data
-                - mountPath: /backup
-                  name: backup-dir
-          containers:
-            - name: upload
-              image: minio/mc
-              command: ["/bin/sh", "-c"]
-              args:
-                - |
-                  mc alias set s3 https://s3.amazonaws.com $ACCESS_KEY $SECRET_KEY
-                  mc cp /backup/dump.zip s3/my-backup-bucket/forgejo-$(date +\%F).zip
-              env:
-                - name: ACCESS_KEY
-                  valueFrom:
-                    secretKeyRef:
-                      name: s3-credentials
-                      key: access-key
-                - name: SECRET_KEY
-                  valueFrom:
-                    secretKeyRef:
-                      name: s3-credentials
-                      key: secret-key
-              volumeMounts:
-                - mountPath: /backup
-                  name: backup-dir
-          restartPolicy: OnFailure
-```
-
-**Pre-requisite:** Create S3 credentials secret:
-```bash
-kubectl create secret generic s3-credentials \
-  -n forgejo \
-  --from-literal=access-key=YOUR_S3_ACCESS_KEY \
-  --from-literal=secret-key=YOUR_S3_SECRET_KEY
+# Create age secret manually
+sops -d secrets/age-argocd.key.enc > /tmp/age.key
+kubectl create secret generic sops-age -n argocd --from-file=keys.txt=/tmp/age.key
+rm /tmp/age.key
 ```
 
 ---
 
 ## Common Commands & Workflows
 
-### Check Cluster Health
+### Cluster Operations
 
 ```bash
-# Use the Python dashboard (see scripts/dashboard.py)
-python3 scripts/dashboard.py
+# Status dashboard
+./scripts/control.sh status
 
-# Or use k9s (real-time TUI)
-brew install k9s  # macOS
-curl -sS https://webinstall.dev/k9s | bash  # Linux
-k9s
-```
-
-### Access Argo CD UI
-
-```bash
-# Port-forward Argo CD server
+# Access Argo CD UI
+./scripts/control.sh ui-argo
+# Or manually:
 kubectl port-forward svc/argocd-server -n argocd 8080:443
 
-# Open https://localhost:8080
-# Get admin password:
+# Get Argo CD admin password
 kubectl get secret -n argocd argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d
+
+# Watch applications
+kubectl get applications -n argocd -w
+
+# Trigger manual backup
+./scripts/control.sh backup-now
+
+# View all pods
+./scripts/control.sh pods
 ```
 
-### Access Forgejo
+### GitOps Workflow
 
 ```bash
-# Direct: https://git-forge.tailnet-name.ts.net (via Tailscale)
-# Or port-forward:
-kubectl port-forward svc/forgejo -n forgejo 3000:3000
-# Then: http://localhost:3000
-```
-
-### Trigger Manual Backup
-
-```bash
-# Create a one-off backup job from the CronJob template
-kubectl create job --from=cronjob/forgejo-backup-s3 manual-backup-$(date +%s) -n forgejo
-
-# Watch progress
-kubectl logs -f <backup-pod-name> -n forgejo --all-containers
-```
-
-### Check Backup Status
-
-```bash
-# Check when the backup CronJob last ran
-kubectl get cronjob forgejo-backup-s3 -n forgejo
-
-# View last backup logs
-kubectl logs $(kubectl get pods -n forgejo -l job-name=forgejo-backup-s3 --sort-by=.metadata.creationTimestamp -o name | tail -n 1) -n forgejo --all-containers
-```
-
-### Update Forgejo Version
-
-```bash
-# 1. Edit apps/forgejo.yaml in your config repo
-# Change: targetRevision: '9.0.0' -> '9.1.0' (or desired version)
-#         image.tag: 9.0.0 -> 9.1.0
+# 1. Edit application manifest
+vim argocd/applications/forgejo.yaml
 
 # 2. Commit and push
-git add apps/forgejo.yaml
-git commit -m "chore: upgrade Forgejo to 9.1.0"
-git push
+git add . && git commit -m "Update Forgejo config" && git push
 
-# 3. Argo CD auto-syncs (usually within a few minutes)
-# Verify in Argo UI or via:
-kubectl rollout status -n forgejo deployment/forgejo
+# 3. Argo CD auto-syncs within ~3 minutes
+kubectl get applications -n argocd
 ```
 
-### SSH Into Node (for debugging)
+### Updating Encrypted Secrets
 
 ```bash
-# Get node IP from Terraform output or Hetzner console
-terraform output node_ip
+# 1. Edit with Yubikey (SOPS auto-decrypts/re-encrypts)
+sops argocd/applications/tailscale-oauth-secret.yaml
 
-# SSH (requires Tailscale for secure private connection, or use Hetzner Firewall rules)
-ssh root@<node-ip>
+# 2. Commit
+git add . && git commit -m "Update Tailscale credentials" && git push
+
+# 3. KSOPS automatically decrypts during Argo CD sync
 ```
-
-### Scaling the Cluster
-
-**To add worker nodes:**
-1. Update `infra/kube.tfvars`: Add to `agent_node_pools`
-2. Run `terraform apply -var-file=kube.tfvars`
-
-**To enable pod autoscaling:**
-```bash
-# metrics-server is already enabled in kube.tfvars
-# Add HorizontalPodAutoscaler to your app manifests
-```
-
----
-
-## Configuration & Secrets
-
-### Environment Variables
-
-Use these when creating resources:
-
-| Variable | Where Used | Example |
-|----------|-----------|---------|
-| `HCLOUD_TOKEN` | Terraform | From Hetzner Cloud Console > API Tokens |
-| `TAILSCALE_OAUTH_ID` | Tailscale Helm | From Tailscale Admin > Settings > OAuth Clients |
-| `TAILSCALE_OAUTH_SECRET` | Tailscale Helm | From Tailscale Admin > Settings > OAuth Clients |
-| `S3_ACCESS_KEY` | Backup Job | Your AWS/S3 provider credentials |
-| `S3_SECRET_KEY` | Backup Job | Your AWS/S3 provider credentials |
-| `FORGEJO_RUNNER_TOKEN` | Runner Helm | From Forgejo Site Admin > Actions > Runners |
-
-### Secrets Management
-
-**Recommended:**
-1. Store secrets in a `.env` file locally (gitignored)
-2. Use `source .env && terraform apply` or pass via `-var` flags
-3. For K8s secrets, use `kubectl create secret` or store encrypted values in your config repo (e.g., Sealed Secrets)
-
-**DO NOT commit:**
-- `kube.tfvars` (contains Hetzner token)
-- `.env` files
-- Raw S3 credentials
 
 ---
 
 ## Troubleshooting
 
-### K8s Cluster Won't Start
-
-1. **Check Hetzner Cloud Console:** Is the node running? Has it rebooted?
-2. **SSH to node:** `ssh root@<node-ip>`
-3. **Check K3s status:** `systemctl status k3s`
-4. **View logs:** `journalctl -u k3s -n 100`
-5. **Terraform plan:** `terraform plan` to see if state is drift-prone
-
-### Forgejo Pods Stuck in CrashLoopBackOff
+### KSOPS Not Decrypting Secrets
 
 ```bash
-# Check logs
-kubectl logs -n forgejo -l app=forgejo --tail=50
+# Check repo-server has KSOPS
+kubectl exec -n argocd deployment/argocd-repo-server -- ls -la /usr/local/bin/ksops
 
-# Common causes:
-# - PVC not bound: kubectl get pvc -n forgejo
-# - Database not initialized: Wait 2-3 mins after deployment
-# - ConfigMap missing: Check Helm values in apps/forgejo.yaml
+# Check age secret exists
+kubectl get secret sops-age -n argocd
+
+# Check repo-server logs
+kubectl logs -n argocd -l app.kubernetes.io/name=argocd-repo-server --tail=100
 ```
 
-### Backup Job Failing
+### Secret Shows ENC[...] in Cluster
+
+This means KSOPS didn't decrypt. Check:
+1. `sops-age` secret exists in argocd namespace
+2. repo-server has KSOPS volume mounts
+3. AGE_KEYFILE environment variable is set
+4. kustomize.buildOptions includes `--enable-alpha-plugins`
 
 ```bash
-# Check the last backup pod
-kubectl get pods -n forgejo -l job-name=forgejo-backup-s3 --sort-by=.metadata.creationTimestamp | tail -n 1
-
-# View logs
-kubectl logs <pod-name> -n forgejo --all-containers
-
-# Common causes:
-# - S3 credentials expired: Update secret
-# - PVC name changed: Update apps/backup.yaml with correct claimName
-# - S3 bucket doesn't exist: Create bucket manually
+# Verify repo-server configuration
+kubectl describe deployment argocd-repo-server -n argocd | grep -A5 "Environment"
+kubectl describe deployment argocd-repo-server -n argocd | grep -A10 "Volumes"
 ```
 
-### Can't Access Forgejo via Tailscale
+### Argo CD Application Stuck
 
 ```bash
-# 1. Verify Tailscale is running
-tailscale status
+# Force sync
+kubectl patch application <app-name> -n argocd --type=merge -p '{"operation":{"sync":{"force":true}}}'
 
-# 2. Verify Ingress exists
-kubectl get ingress -n forgejo
-
-# 3. Check Tailscale Ingress controller logs
-kubectl logs -n tailscale -l app=tailscale-operator --tail=50
-
-# 4. Verify DNS (MagicDNS)
-dig git-forge.ts
-# Should resolve to a 100.x.y.z Tailscale IP
-
-# 5. Clear local DNS cache (macOS)
-sudo dscacheutil -flushcache
+# Check sync status
+kubectl get application <app-name> -n argocd -o yaml | yq '.status'
 ```
 
-### Performance Issues
-
-1. **Check node CPU/RAM:**
-   ```bash
-   kubectl top nodes
-   kubectl top pods -A --sort-by=cpu | head -20
-   ```
-
-2. **If CPU-bound:** Consider upgrading node type in `kube.tfvars` (e.g., `cpx31`)
-3. **If memory-bound:** Reduce pod requests, or add worker nodes
-
----
-
-## Development Workflow
-
-### Making Infrastructure Changes
-
-```
-1. Edit infra/kube.tfvars or Terraform files
-2. Run: terraform plan -var-file=kube.tfvars
-3. Review changes
-4. Run: terraform apply -var-file=kube.tfvars
-5. Verify: kubectl get nodes
-```
-
-### Making Application Changes
-
-```
-1. Edit apps/<app>.yaml in your config repo
-2. Commit and push
-3. Argo CD automatically syncs (check UI or kubectl)
-4. Verify: kubectl get pods -n <app-namespace>
-```
-
-### Testing Locally Before Deploy
+### Can't Decrypt with Yubikey
 
 ```bash
-# Validate Helm chart (example for Forgejo)
-helm template forgejo https://codeberg.org/forgejo/forgejo-helm \
-  --version 9.0.0 \
-  -f apps/forgejo-values.yaml \
-  > /tmp/forgejo-rendered.yaml
+# Ensure Yubikey is connected
+gpg --card-status
 
-# Then dry-run:
-kubectl apply -f /tmp/forgejo-rendered.yaml --dry-run=client
+# Re-import keys if needed
+gpg --import <(gpg --export YOUR_KEY_ID)
 ```
 
 ---
 
-## Important Gotchas & Best Practices
+## File Reference
 
-1. **MicroOS Reboots Automatically:** Don't panic when the node restarts. Btrfs snapshots rollback failed updates. Services come back up.
+### Critical Files
 
-2. **Storage is Single Node:** If the Hetzner node dies permanently, you lose data unless your backup is up-to-date. Always verify backups are completing.
+| File | Purpose |
+|------|---------|
+| `.sops.yaml` | SOPS encryption rules (age + PGP keys) |
+| `secrets/age-argocd.key.enc` | Encrypted backup of cluster age key |
+| `argocd/app-of-apps.yaml` | Root application for GitOps |
+| `scripts/setup-argocd.sh` | Main setup script |
+| `argocd/config/kustomization.yaml` | KSOPS patches for Argo CD |
 
-3. **Tailscale Network is Private:** You can optionally close all Hetzner Firewall ports for maximum security. Access via Tailscale only.
+### Application Manifests
 
-4. **Argo CD Config Repo is Critical:** Keep it in a private GitHub/Codeberg repo. This is your "Backup Brain"—if K8s dies, re-deploying Argo with this repo rebuilds everything.
+| File | Deploys |
+|------|---------|
+| `argocd/applications/forgejo.yaml` | Forgejo Git server |
+| `argocd/applications/runner.yaml` | Forgejo CI/CD runners |
+| `argocd/applications/tailscale-operator.yaml` | Tailscale VPN operator |
+| `argocd/applications/backup-resources.yaml` | S3 backup CronJob |
 
-5. **Use GitOps for Everything:** Commit changes to your config repo, let Argo sync. Don't manually `kubectl apply` (it defeats GitOps).
+### Encrypted Secrets
 
-6. **Monitor Backups:** Use `python3 scripts/dashboard.py` daily. If backup is >24 hours old, investigate the CronJob logs immediately.
-
-7. **Don't Skip Tailscale Updates:** Check your Tailscale admin console for any deprecations or security advisories related to the operator.
+| File | Contains |
+|------|----------|
+| `argocd/applications/tailscale-oauth-secret.yaml` | Tailscale OAuth client_id/secret |
+| `argocd/applications/s3-backup-credentials-secret.yaml` | S3 access-key/secret-key |
+| `apps/tailscale-secret.yaml` | Tailscale OAuth credentials |
 
 ---
 
-## Quick Reference: File Locations & URLs
+## Environment Variables
 
-| Item | Location | Access |
-|------|----------|--------|
-| **Terraform Config** | `infra/kube.tfvars` | Local file (gitignored) |
-| **Argo CD UI** | `localhost:8080` (port-forward) | Secure private |
-| **Forgejo** | `git-forge.tailnet-name.ts.net` | Tailscale VPN |
-| **K8s API** | Via kubeconfig | Tailscale VPN |
-| **Forgejo DB Backup** | S3 bucket | Off-site, encrypted |
-| **Cluster Logs** | K8s cluster | `kubectl logs <pod>` |
+| Variable | Where Used | Example |
+|----------|-----------|---------|
+| `HCLOUD_TOKEN` | Terraform | From Hetzner Cloud Console |
+| `TAILSCALE_OAUTH_ID` | Encrypted in git | Set via sops |
+| `TAILSCALE_OAUTH_SECRET` | Encrypted in git | Set via sops |
+| `S3_ACCESS_KEY` | Encrypted in git | Set via sops |
+| `S3_SECRET_KEY` | Encrypted in git | Set via sops |
+
+---
+
+## Security Notes
+
+1. **Age key is the automation weak point** - Keep `secrets/age-argocd.key.enc` backup safe
+2. **Yubikey private key never leaves Yubikey** - Only public key in `.sops.yaml`
+3. **All secrets encrypted in git** - Full audit trail, safe to commit
+4. **No public ports** - All access via Tailscale VPN
+5. **Rotate credentials periodically** - Use `sops updatekeys` for age key rotation
 
 ---
 
 ## Further Reading
 
-- **Terraform Module Docs:** See `terraform-hetzner-readme.md` (in this repo) - **AUTHORITATIVE** for current module interface (uses Talos OS, not MicroOS)
-- **Hetzner Cloud Docs:** https://docs.hetzner.cloud/
-- **K3s Docs:** https://docs.k3s.io/
-- **Talos OS Docs:** https://www.talos.dev/ (modern immutable Kubernetes OS)
-- **Forgejo Docs:** https://forgejo.org/docs/latest/
-- **Argo CD Docs:** https://argo-cd.readthedocs.io/
+- **Terraform Module:** See `docs/terraform-hetzner-readme.md` for Talos/Hetzner config
+- **SOPS Guide:** See `SOPS.md` for detailed encryption workflow
+- **Argo CD:** https://argo-cd.readthedocs.io/
+- **KSOPS:** https://github.com/viaduct-ai/kustomize-sops
 - **Tailscale Operator:** https://tailscale.com/kb/1236/tailscale-operator
-
----
-
-## Next Steps (After Initial Deployment)
-
-1. **Secure Hetzner Firewall:** Close ports 22, 6443, 443, 80 if using Tailscale only
-2. **Set Argo CD Sync Interval:** Configure in Argo UI (default is 3 mins, suitable for most cases)
-3. **Enable Backup Verification:** Test restore process with a backup—don't assume it works
-4. **Set Up Monitoring Alerts:** Forward CronJob failure notifications (e.g., via email or Slack)
-5. **Document Your Tailscale Network:** Keep a private doc of DNS names, node IPs, etc.
-6. **Rotate Credentials Periodically:** S3 keys, Hetzner tokens, Tailscale OAuth every 90 days
+- **Talos OS:** https://www.talos.dev/
 
 ---
 
