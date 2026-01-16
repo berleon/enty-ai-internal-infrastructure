@@ -6,7 +6,8 @@
       "Bash(kubectl describe:*)",
       "WebSearch",
       "Bash(chmod:*)",
-      "Bash(kubectl logs:*)"
+      "Bash(kubectl logs:*)",
+      "Bash(kubectl exec:*)"
     ]
   }
 }

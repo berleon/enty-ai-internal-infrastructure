@@ -124,7 +124,7 @@ else
         "op": "add",
         "path": "/spec/template/spec/containers/0/env/-",
         "value": {
-          "name": "AGE_KEYFILE",
+          "name": "SOPS_AGE_KEY_FILE",
           "value": "/.config/sops/age/keys.txt"
         }
       },
