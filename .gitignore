@@ -91,8 +91,10 @@ ehthumbs.db
 !*.example
 !*.example.*
 
-# Downloaded documentation (auto-generated, not committed)
-docs/
+# Downloaded documentation and references (auto-generated, not committed)
+docs/references/
 *.downloaded.md
 
-terraform-hetzner-readme.md
+# But DO commit our custom guides
+!docs/TAILSCALE.md
+!docs/SOPS.md
