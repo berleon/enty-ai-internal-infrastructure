@@ -445,6 +445,7 @@ After that, **always use git**.
 - **SOPS Guide:** See `SOPS.md` for detailed encryption workflow
 - **Argo CD:** https://argo-cd.readthedocs.io/
 - **KSOPS:** https://github.com/viaduct-ai/kustomize-sops
+- **Tailscale Setup Guide:** See `docs/TAILSCALE.md` for detailed operator setup
 - **Tailscale Operator:** https://tailscale.com/kb/1236/tailscale-operator
 - **Talos OS:** https://www.talos.dev/
 

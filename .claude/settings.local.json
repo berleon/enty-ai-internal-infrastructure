@@ -7,7 +7,8 @@
       "WebSearch",
       "Bash(chmod:*)",
       "Bash(kubectl logs:*)",
-      "Bash(kubectl exec:*)"
+      "Bash(kubectl exec:*)",
+      "Bash(git -C /home/leon/dev/enty/enty/external/enty-ai-internal-infrastructure log --oneline -5)"
     ]
   }
 }
