@@ -19,7 +19,6 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: argocd-application-controller
-  namespace: argocd
 spec:
   template:
     spec:
@@ -39,7 +38,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: argocd-repo-server
-  namespace: argocd
+
 spec:
   template:
     spec:
@@ -59,7 +58,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: argocd-server
-  namespace: argocd
+
 spec:
   template:
     spec:
@@ -79,7 +78,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: argocd-dex-server
-  namespace: argocd
+
 spec:
   template:
     spec:
@@ -99,7 +98,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: argocd-redis
-  namespace: argocd
+
 spec:
   template:
     spec:
@@ -119,7 +118,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: argocd-applicationset-controller
-  namespace: argocd
+
 spec:
   template:
     spec:
@@ -139,7 +138,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: argocd-notifications-controller
-  namespace: argocd
+
 spec:
   template:
     spec:
