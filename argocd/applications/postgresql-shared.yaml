@@ -25,11 +25,8 @@ spec:
               secretKeys:
                 adminPasswordKey: postgres-password
 
-        # Image configuration (ARM64 compatible)
+        # Image configuration - let chart pick default ARM64-compatible tag
         image:
-          registry: docker.io
-          repository: bitnami/postgresql
-          tag: 17.2.0-debian-12-r9
           pullPolicy: IfNotPresent
 
         # Authentication - uses secret created above
