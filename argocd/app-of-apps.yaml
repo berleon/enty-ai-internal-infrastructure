@@ -1,12 +1,19 @@
-# App of Apps Pattern for Argo CD
-# This application automatically deploys all Application manifests in argocd/applications/ directory
+# Root App of Apps - Layered GitOps Structure
+#
+# This deploys applications in 3 layers with explicit ordering:
+#   1. Infrastructure (wave 0) - Operators (Tailscale, PostgreSQL, Argo CD config)
+#   2. Platform (wave 1) - Shared services (PostgreSQL cluster, backups)
+#   3. Apps (wave 2) - User applications (Forgejo, Authentik)
 #
 # Workflow:
-# 1. Create new Application manifest in argocd/applications/
-# 2. Commit to git
-# 3. Argo CD auto-discovers and deploys (within ~3 minutes)
+#   1. Create new Application manifest in appropriate layer directory
+#   2. Commit to git
+#   3. Argo CD auto-discovers and deploys (within ~3 minutes)
 #
-# This enables fully automated GitOps - just commit an Application and it deploys!
+# Structure:
+#   argocd/infrastructure/  - Core operators and system config
+#   argocd/platform/        - Shared platform services
+#   argocd/apps/            - User-facing applications
 
 apiVersion: argoproj.io/v1alpha1
 kind: Application
@@ -17,15 +24,35 @@ metadata:
     - resources-finalizer.argocd.argoproj.io
 spec:
   project: default
-  source:
-    repoURL: https://github.com/berleon/enty-ai-internal-infrastructure.git
-    targetRevision: main
-    path: argocd/applications/
-    directory:
-      recurse: true
+  sources:
+    # Layer 1: Infrastructure (sync wave 0)
+    - repoURL: https://github.com/berleon/enty-ai-internal-infrastructure.git
+      targetRevision: main
+      path: argocd/infrastructure/
+      directory:
+        recurse: false
+        include: 'app-of-apps.yaml'
+
+    # Layer 2: Platform (sync wave 1)
+    - repoURL: https://github.com/berleon/enty-ai-internal-infrastructure.git
+      targetRevision: main
+      path: argocd/platform/
+      directory:
+        recurse: false
+        include: 'app-of-apps.yaml'
+
+    # Layer 3: Apps (sync wave 2)
+    - repoURL: https://github.com/berleon/enty-ai-internal-infrastructure.git
+      targetRevision: main
+      path: argocd/apps/
+      directory:
+        recurse: false
+        include: 'app-of-apps.yaml'
+
   destination:
     server: https://kubernetes.default.svc
     namespace: argocd
+
   syncPolicy:
     automated:
       prune: true
