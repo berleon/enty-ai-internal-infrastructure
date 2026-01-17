@@ -10,7 +10,7 @@ spec:
   source:
     repoURL: https://github.com/berleon/enty-ai-internal-infrastructure.git
     targetRevision: main
-    path: argocd/resources/postgres-cluster
+    path: argocd/platform/postgres-cluster/cluster
   destination:
     server: https://kubernetes.default.svc
     namespace: database
