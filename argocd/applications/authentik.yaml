@@ -36,10 +36,10 @@ spec:
           resources:
             requests:
               cpu: 50m
-              memory: 150Mi
+              memory: 300Mi
             limits:
               cpu: 500m
-              memory: 300Mi
+              memory: 800Mi
 
           # Mount secrets
           volumes:
@@ -66,10 +66,10 @@ spec:
           resources:
             requests:
               cpu: 50m
-              memory: 200Mi
+              memory: 300Mi
             limits:
               cpu: 500m
-              memory: 400Mi
+              memory: 600Mi
 
           # Mount secrets
           volumes:
