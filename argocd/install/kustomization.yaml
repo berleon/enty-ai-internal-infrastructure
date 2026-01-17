@@ -12,6 +12,8 @@ resources:
 patches:
   # Strategic merge patch for repo-server KSOPS configuration
   - path: patches/repo-server-ksops.yaml
+  # Strategic merge patches for resource limits (optimize for 4GB node)
+  - path: patches/resource-limits.yaml
   # JSON patch for argocd-cm ConfigMap (enable kustomize plugins)
   - target:
       group: ""

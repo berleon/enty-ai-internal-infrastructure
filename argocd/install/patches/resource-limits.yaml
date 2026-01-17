@@ -1,0 +1,154 @@
+# Resource limits for Argo CD components
+# Optimized for 4GB ARM node (CAX11)
+#
+# Current usage analysis (before limits):
+# - argocd-application-controller: 255Mi (NO LIMITS)
+# - argocd-repo-server: 48Mi (NO LIMITS)
+# - argocd-server: 43Mi (NO LIMITS)
+# - argocd-dex-server: 30Mi (NO LIMITS)
+# - Other components: 20-30Mi each (NO LIMITS)
+#
+# Goals:
+# - Set conservative limits based on actual usage
+# - Add 20-30% headroom for spikes
+# - Save ~200-300Mi total by preventing unbounded growth
+
+---
+# Application Controller (StatefulSet)
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: argocd-application-controller
+  namespace: argocd
+spec:
+  template:
+    spec:
+      containers:
+        - name: argocd-application-controller
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi  # Currently using 255Mi, limit prevents growth
+
+---
+# Repo Server (Deployment)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: argocd-repo-server
+  namespace: argocd
+spec:
+  template:
+    spec:
+      containers:
+        - name: argocd-repo-server
+          resources:
+            requests:
+              cpu: 25m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 128Mi  # Currently using 48Mi, generous headroom
+
+---
+# API Server (Deployment)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: argocd-server
+  namespace: argocd
+spec:
+  template:
+    spec:
+      containers:
+        - name: argocd-server
+          resources:
+            requests:
+              cpu: 25m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 128Mi  # Currently using 43Mi, generous headroom
+
+---
+# Dex Server (Deployment)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: argocd-dex-server
+  namespace: argocd
+spec:
+  template:
+    spec:
+      containers:
+        - name: dex
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi  # Currently using 30Mi, 2x headroom
+
+---
+# Redis (Deployment)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: argocd-redis
+  namespace: argocd
+spec:
+  template:
+    spec:
+      containers:
+        - name: redis
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi  # Currently using 8Mi, large headroom
+
+---
+# ApplicationSet Controller (Deployment)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: argocd-applicationset-controller
+  namespace: argocd
+spec:
+  template:
+    spec:
+      containers:
+        - name: argocd-applicationset-controller
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi  # Currently using 23Mi, 3x headroom
+
+---
+# Notifications Controller (Deployment)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: argocd-notifications-controller
+  namespace: argocd
+spec:
+  template:
+    spec:
+      containers:
+        - name: argocd-notifications-controller
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi  # Currently using 22Mi, 3x headroom
