@@ -298,6 +298,50 @@ kubectl get applications -n argocd -w
 ./scripts/control.sh pods
 ```
 
+### Access Talos Host System
+
+**Talos OS has no SSH** - use `talosctl` for host access (like `htop` for the node).
+
+```bash
+# 1. Configure talosctl (one-time setup)
+# Note: talosconfig is in Terraform state (already decrypted)
+cd infra
+mkdir -p ~/.talos
+terraform output -raw talosconfig > ~/.talos/config
+
+# 2. Access interactive dashboard (htop-like view)
+talosctl dashboard
+# Shows: CPU, memory, disk I/O, running processes on the host
+
+# 3. Useful commands for debugging
+talosctl memory              # Memory usage breakdown
+talosctl processes           # All host processes (not just K8s pods)
+talosctl read /proc/meminfo  # Detailed memory stats
+talosctl get members         # Cluster members
+talosctl logs kubelet        # System logs
+talosctl dmesg               # Kernel messages
+```
+
+**Keyboard shortcuts in `talosctl dashboard`:**
+- `h/l` or `←/→` - Switch nodes (multi-node clusters)
+- `j/k` or `↓/↑` - Scroll logs/processes
+- `Ctrl-d` / `Ctrl-u` - Page down/up
+- `q` - Quit
+
+**For Terraform operations with SOPS-encrypted tfvars:**
+```bash
+# Decrypt kube.tfvars for Terraform (requires Yubikey)
+cd infra
+sops -d kube.tfvars > kube.tfvars.decrypted
+terraform plan -var-file=kube.tfvars.decrypted
+rm kube.tfvars.decrypted
+
+# Or decrypt in-place temporarily
+sops -d -i kube.tfvars           # decrypt
+terraform plan -var-file=kube.tfvars
+sops -e -i kube.tfvars           # re-encrypt
+```
+
 ### GitOps Workflow (ONLY WAY TO CHANGE CONFIG)
 
 ```bash

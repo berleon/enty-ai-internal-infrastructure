@@ -222,6 +222,46 @@ k9s
 ./scripts/control.sh top
 ```
 
+### Access Talos Host System (htop-like dashboard)
+
+**Note:** Talos OS doesn't support SSH. Use `talosctl` instead.
+
+```bash
+# 1. Configure talosctl (one-time setup)
+cd infra
+mkdir -p ~/.talos
+terraform output -raw talosconfig > ~/.talos/config
+
+# 2. Access interactive dashboard (like htop)
+talosctl dashboard
+
+# 3. Other useful commands
+talosctl memory           # Show memory usage
+talosctl processes        # Show running processes
+talosctl read /proc/meminfo  # Detailed memory stats
+talosctl get members      # Cluster member info
+```
+
+**Keyboard shortcuts in dashboard:**
+- `h/l` or `←/→` - Switch nodes (if multi-node)
+- `j/k` or `↓/↑` - Scroll logs/processes
+- `Ctrl-d/u` - Page down/up
+- `q` - Quit
+
+**For Terraform operations with encrypted tfvars:**
+```bash
+# Decrypt tfvars temporarily (requires Yubikey)
+cd infra
+sops -d kube.tfvars > kube.tfvars.decrypted
+terraform plan -var-file=kube.tfvars.decrypted
+rm kube.tfvars.decrypted
+
+# Or decrypt in-place
+sops -d -i kube.tfvars    # decrypt
+terraform plan -var-file=kube.tfvars
+sops -e -i kube.tfvars    # re-encrypt
+```
+
 ---
 
 ## Configuration
