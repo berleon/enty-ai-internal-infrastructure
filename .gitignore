@@ -22,8 +22,9 @@ override.tf.json
 .env.local
 .env.*.local
 *.secret
-secrets/
+/secrets/  # Only ignore top-level secrets/ directory
 !secrets/age-*.key.enc  # Allow encrypted key backups
+!argocd/**/secrets/  # Allow SOPS-encrypted secrets in argocd directories
 .kube/
 
 # IDE and editor files
