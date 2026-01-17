@@ -46,9 +46,9 @@ spec:
           seccompProfile:
             type: RuntimeDefault
 
-        # Create CRDs
+        # Skip CRDs - will install separately to avoid annotation size limits
         crds:
-          create: true
+          create: false
 
         # RBAC
         rbac:
@@ -68,3 +68,5 @@ spec:
       selfHeal: true
     syncOptions:
       - CreateNamespace=true
+      - ServerSideApply=true  # Handle large CRDs
+      - Replace=true  # Allow larger annotations

@@ -1,0 +1,22 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: cloudnative-pg-crds
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/berleon/enty-ai-internal-infrastructure.git
+    targetRevision: main
+    path: argocd/resources/cloudnative-pg-crds
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: default  # CRDs are cluster-scoped, namespace doesn't matter
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - Replace=true  # Allow CRD updates
