@@ -46,9 +46,9 @@ spec:
           seccompProfile:
             type: RuntimeDefault
 
-        # Skip CRDs - will install separately to avoid annotation size limits
+        # Create CRDs via Helm (ServerSideApply handles annotation size)
         crds:
-          create: false
+          create: true
 
         # RBAC
         rbac:
@@ -68,5 +68,4 @@ spec:
       selfHeal: true
     syncOptions:
       - CreateNamespace=true
-      - ServerSideApply=true  # Handle large CRDs
-      - Replace=true  # Allow larger annotations
+      - ServerSideApply=true  # Prevents annotation size limit issues with large CRDs
