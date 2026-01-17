@@ -75,13 +75,25 @@ spec:
             session:
               PROVIDER: memory
 
-          # Inject PostgreSQL password from secret
+            oauth2_client:
+              ENABLE_AUTO_REGISTRATION: true
+              ACCOUNT_LINKING: auto
+              UPDATE_AVATAR: true
+
+          # Inject PostgreSQL password and OAuth credentials from secrets
           additionalConfigFromEnvs:
             - name: FORGEJO__DATABASE__PASSWD
               valueFrom:
                 secretKeyRef:
                   name: forgejo-postgres-credentials
                   key: forgejo-password
+            # OAuth Authentik configuration
+            - name: FORGEJO__OAUTH2_CLIENT__REGISTER_EMAIL_CONFIRM
+              value: "false"
+            - name: FORGEJO__OAUTH2_CLIENT__USERNAME
+              value: "preferred_username"
+            - name: FORGEJO__OAUTH2_CLIENT__OPENID_CONNECT_SCOPES
+              value: "openid profile email"
 
   destination:
     server: https://kubernetes.default.svc

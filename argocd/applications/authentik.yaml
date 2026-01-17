@@ -1,0 +1,107 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: authentik
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: oci://ghcr.io/goauthentik/helm
+    targetRevision: '2025.12.1'
+    chart: authentik
+    helm:
+      releaseName: authentik
+      values: |
+        global:
+          podAnnotations:
+            # Tailscale proxy annotations for admin interface access
+            tailscale.com/expose: "true"
+
+        authentik:
+          # Secret key and bootstrap password from secret
+          secret_key: "file:///secrets/config/secret_key"
+          error_reporting:
+            enabled: false  # Privacy-conscious
+
+          postgresql:
+            # Connect to shared PostgreSQL cluster
+            host: "postgres-shared-rw.database.svc.cluster.local"
+            port: 5432
+            name: "authentik"
+            user: "authentik"
+            password: "file:///secrets/postgres/password"
+
+        server:
+          replicas: 1
+          resources:
+            requests:
+              cpu: 50m
+              memory: 150Mi
+            limits:
+              cpu: 500m
+              memory: 300Mi
+
+          # Mount secrets
+          volumes:
+            - name: config-secret
+              secret:
+                secretName: authentik-config
+            - name: postgres-secret
+              secret:
+                secretName: authentik-db-password
+                items:
+                  - key: password
+                    path: password
+
+          volumeMounts:
+            - name: config-secret
+              mountPath: /secrets/config
+              readOnly: true
+            - name: postgres-secret
+              mountPath: /secrets/postgres
+              readOnly: true
+
+        worker:
+          replicas: 1
+          resources:
+            requests:
+              cpu: 50m
+              memory: 200Mi
+            limits:
+              cpu: 500m
+              memory: 400Mi
+
+          # Mount secrets
+          volumes:
+            - name: config-secret
+              secret:
+                secretName: authentik-config
+            - name: postgres-secret
+              secret:
+                secretName: authentik-db-password
+                items:
+                  - key: password
+                    path: password
+
+          volumeMounts:
+            - name: config-secret
+              mountPath: /secrets/config
+              readOnly: true
+            - name: postgres-secret
+              mountPath: /secrets/postgres
+              readOnly: true
+
+        # Disable bundled PostgreSQL
+        postgresql:
+          enabled: false
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: authentik
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
