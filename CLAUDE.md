@@ -187,14 +187,137 @@ Secrets are encrypted with SOPS using a **dual-key system**:
 | **Age Private Key (cluster)** | K8s Secret `sops-age` in `argocd` namespace | Used by KSOPS |
 | **Yubikey Fingerprints** | `.sops.yaml` | PGP keys for manual decryption |
 
+### Secret Structure Pattern
+
+**All secrets use the KSOPS pattern:**
+
+```
+argocd/
+├── applications/
+│   └── <service>-secrets.yaml         # Application pointing to resources/
+└── resources/
+    └── <service>-secrets/
+        ├── kustomization.yaml          # KSOPS generator config
+        ├── secret-generator.yaml       # KSOPS plugin invocation
+        └── <service>-secret.yaml       # SOPS-encrypted Secret manifest
+```
+
+**Example:**
+```
+argocd/
+├── applications/
+│   └── postgresql-shared-secrets.yaml
+└── resources/
+    └── postgresql-shared-secrets/
+        ├── kustomization.yaml
+        ├── secret-generator.yaml
+        └── postgresql-shared-secret.yaml  # SOPS-encrypted
+```
+
+### Creating a New Secret
+
+**1. Create the secret file structure:**
+
+```bash
+mkdir -p argocd/resources/myapp-secrets
+```
+
+**2. Create the SOPS-encrypted secret:**
+
+```bash
+# Create plaintext secret first
+cat > /tmp/myapp-secret.yaml <<EOF
+apiVersion: v1
+kind: Secret
+metadata:
+  name: myapp-credentials
+  namespace: myapp
+type: Opaque
+stringData:
+  username: admin
+  password: supersecret
+EOF
+
+# Encrypt with SOPS (requires Yubikey)
+sops -e /tmp/myapp-secret.yaml > argocd/resources/myapp-secrets/myapp-secret.yaml
+rm /tmp/myapp-secret.yaml
+```
+
+**3. Create `kustomization.yaml`:**
+
+```yaml
+# argocd/resources/myapp-secrets/kustomization.yaml
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+generators:
+  - ./secret-generator.yaml
+```
+
+**4. Create `secret-generator.yaml`:**
+
+```yaml
+# argocd/resources/myapp-secrets/secret-generator.yaml
+apiVersion: viaduct.ai/v1
+kind: ksops
+metadata:
+  name: myapp-secret-generator
+  annotations:
+    config.kubernetes.io/function: |
+      exec:
+        path: ksops
+files:
+  - ./myapp-secret.yaml
+```
+
+**5. Create Application manifest:**
+
+```yaml
+# argocd/applications/myapp-secrets.yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: myapp-secrets
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/YOUR_USERNAME/YOUR_REPO.git
+    targetRevision: main
+    path: argocd/resources/myapp-secrets
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: myapp
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+```
+
+**6. Commit and push:**
+
+```bash
+git add argocd/resources/myapp-secrets/ argocd/applications/myapp-secrets.yaml
+git commit -m "feat: add myapp secrets with KSOPS encryption"
+git push
+```
+
+Argo CD will automatically:
+1. Detect the new Application
+2. Run `kustomize build` with KSOPS plugin
+3. KSOPS decrypts the secret using the `sops-age` key
+4. Apply the decrypted secret to the cluster
+
 ### Encrypted Secret Files
 
-| File | Secret Name | Purpose |
-|------|-------------|---------|
-| `apps/tailscale-secret.yaml` | `tailscale-oauth` | Tailscale OAuth credentials |
-| `argocd/applications/tailscale-oauth-secret.yaml` | `operator-oauth` | Tailscale operator |
-| `argocd/applications/s3-backup-credentials-secret.yaml` | `s3-backup-credentials` | S3 backup auth |
-| `kustomize/tailscale/tailscale-oauth-secret.yaml` | `tailscale-oauth` | Kustomize variant |
+| Secret Resource | Application Manifest | Purpose |
+|-----------------|----------------------|---------|
+| `argocd/resources/tailscale-secrets/` | `argocd/applications/tailscale-secrets.yaml` | Tailscale OAuth |
+| `argocd/resources/postgresql-shared-secrets/` | `argocd/applications/postgresql-shared-secrets.yaml` | PostgreSQL passwords |
+| `argocd/resources/s3-backup-secrets/` | `argocd/applications/s3-backup-secrets.yaml` | S3 credentials |
+| `argocd/resources/github-secrets/` | `argocd/applications/github-secrets.yaml` | GitHub credentials |
 
 ### Working with Encrypted Secrets
 
