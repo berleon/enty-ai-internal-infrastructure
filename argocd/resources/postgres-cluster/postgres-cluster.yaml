@@ -67,23 +67,22 @@ spec:
       # No init scripts - databases created declaratively via Database CRDs
 
   # Managed roles
+  # Each role requires a separate kubernetes.io/basic-auth secret
+  # with 'username' and 'password' keys (CloudNativePG requirement)
   managed:
     roles:
       - name: authentik
         ensure: present
         login: true
         passwordSecret:
-          name: postgresql-shared-passwords
-          key: authentik-password
+          name: authentik-db-password
       - name: forgejo
         ensure: present
         login: true
         passwordSecret:
-          name: postgresql-shared-passwords
-          key: forgejo-password
+          name: forgejo-db-password
       - name: paperless
         ensure: present
         login: true
         passwordSecret:
-          name: postgresql-shared-passwords
-          key: paperless-password
+          name: paperless-db-password
