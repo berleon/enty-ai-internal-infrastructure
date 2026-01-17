@@ -64,6 +64,7 @@ CronJob (Daily) → Backup to S3
 ### Resource Constraints & Management
 
 **Current Node:** CAX11 (4 vCPU ARM64, 4GB RAM, ~3GB usable after K8s overhead)
+**Recommended Upgrade:** CAX21 (4 vCPU ARM64, 8GB RAM, ~7GB usable) — €4/month more, recommended for production
 
 **Resource Strategy:**
 - **Shared PostgreSQL**: ~800Mi-1Gi for all databases (vs 1.5-2GB for per-service instances)
@@ -71,21 +72,42 @@ CronJob (Daily) → Backup to S3
 - **No autoscaling**: Single-node can't scale horizontally
 - **Monitoring**: Use `kubectl top nodes` to track usage
 
-**Typical Memory Allocation (with shared PostgreSQL):**
+**Memory Allocation:**
+
+*With CAX11 (4GB) - TIGHT:*
 ```
 System (K8s, Talos, CNI):     ~800Mi
 PostgreSQL (shared):          ~800Mi
 Argo CD:                      ~300Mi
 Tailscale:                    ~100Mi
-Forgejo:                      ~500Mi
-Authentik (server+worker):    ~1Gi
-Paperless-NGX:                ~600Mi
-Buffer/Cache:                 ~200Mi
+Forgejo:                      ~200Mi
+Authentik (server+worker):    ~700Mi (crashes if >300Mi limit)
 -----------------------------------
-Total:                        ~4.3Gi (requires careful tuning)
+Total:                        ~2.9Gi (86% of requests, leaves little room)
 ```
 
-**Upgrade Path:** If consistently >90% memory, upgrade to CAX21 (8GB ARM, ~€8.50/mo) or CAX31 (16GB ARM, ~€16/mo).
+*With CAX21 (8GB) - COMFORTABLE:*
+```
+System (K8s, Talos, CNI):     ~800Mi
+PostgreSQL (shared):          ~800Mi
+Argo CD:                      ~300Mi
+Tailscale:                    ~100Mi
+Forgejo:                      ~200Mi
+Authentik (server+worker):    ~1-1.2Gi (can use 600Mi+ safely)
+Paperless-NGX:                ~600Mi (if added)
+Buffer/Cache:                 ~1Gi
+-----------------------------------
+Total:                        ~5-5.8Gi (uses ~70-75% of 8GB)
+```
+
+**Known Issues:**
+- Authentik server OOMKilled on CAX11 (300Mi limit insufficient at startup)
+- Fix: Upgrade to CAX21 or increase memory requests
+
+**Upgrade Path:**
+- **If >85% memory on CAX11**: Upgrade to CAX21 (€4/month, dramatic stability improvement)
+- **If adding Paperless-NGX or other services**: Use CAX21
+- **If >90% on CAX21**: Consider CAX31 (16GB ARM, €16/mo)
 
 ### ARM64 Compatibility Checklist
 

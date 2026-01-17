@@ -48,19 +48,45 @@ cp kube.tfvars.example kube.tfvars
 # 3. Initialize Terraform
 terraform init
 
-# 4. Plan the deployment (review changes)
-terraform plan -var-file=kube.tfvars
+# 4. (Optional) Use terraform.sh for encrypted vars (if kube.tfvars is SOPS-encrypted)
+# The script automatically decrypts with SOPS, securely cleans up after
+./terraform.sh plan
+./terraform.sh apply
 
-# 5. Apply (creates the cluster)
+# OR: Use plain Terraform (if kube.tfvars is not encrypted)
+terraform plan -var-file=kube.tfvars
 terraform apply -var-file=kube.tfvars
 
-# 6. Verify kubeconfig is written
+# 5. Verify kubeconfig is written
 export KUBECONFIG=~/.kube/config
 kubectl cluster-info
 kubectl get nodes
+
+# 6. Get Talos kubeconfig for host access
+./terraform.sh output -raw talosconfig > ~/.talos/config
+talosctl dashboard  # View node metrics, memory, processes
 ```
 
 **Estimated time:** 5-10 minutes for cluster creation
+
+### Server Upgrades
+
+To upgrade the node from CAX11 to CAX21 (or vice versa):
+
+```bash
+cd infra
+
+# Plan the upgrade (view diff)
+./terraform.sh plan
+
+# Apply the upgrade (downtime ~5 minutes)
+./terraform.sh apply
+
+# Monitor cluster recovery
+kubectl get nodes -w  # Wait for "Ready" status
+```
+
+**Note:** Talos automatically handles rebooting and recovery after server type change. No manual intervention needed.
 
 ### Phase 2: Install Tailscale (Secure VPN Access)
 
