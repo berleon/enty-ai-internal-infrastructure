@@ -48,6 +48,15 @@ spec:
             email: "admin@example.com"
 
           config:
+            database:
+              DB_TYPE: postgres
+              HOST: postgres-shared-rw.database.svc.cluster.local:5432
+              NAME: forgejo
+              USER: forgejo
+              SCHEMA: public
+              SSL_MODE: disable  # Internal cluster traffic
+              CHARSET: utf8mb4
+
             server:
               # CHANGE THIS! Replace with your Tailscale domain
               # Find your tailnet ID at: https://login.tailscale.com/admin/settings/general
@@ -65,6 +74,14 @@ spec:
 
             session:
               PROVIDER: memory
+
+          # Inject PostgreSQL password from secret
+          additionalConfigFromEnvs:
+            - name: FORGEJO__DATABASE__PASSWD
+              valueFrom:
+                secretKeyRef:
+                  name: forgejo-postgres-credentials
+                  key: forgejo-password
 
   destination:
     server: https://kubernetes.default.svc
