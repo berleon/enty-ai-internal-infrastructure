@@ -46,9 +46,7 @@ spec:
             requests:
               cpu: 25m
               memory: 64Mi
-            limits:
-              cpu: 250m
-              memory: 128Mi  # Currently using 48Mi, generous headroom
+            # No limits during bootstrap - OOMKilled rendering Helm charts
 
 ---
 # API Server (Deployment)
