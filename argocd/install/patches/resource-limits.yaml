@@ -30,7 +30,7 @@ spec:
               memory: 256Mi
             limits:
               cpu: 500m
-              memory: 512Mi  # Was OOMKilled at 256Mi, needs more headroom
+              memory: 1Gi  # OOMKilled at 512Mi during initial sync of 12 apps, needs headroom
 
 ---
 # Repo Server (Deployment)
