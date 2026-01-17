@@ -6,5 +6,6 @@ metadata:
 spec:
   cluster:
     name: postgres-shared
+  name: forgejo
   owner: forgejo
   ensure: present

@@ -6,5 +6,6 @@ metadata:
 spec:
   cluster:
     name: postgres-shared
+  name: authentik
   owner: authentik
   ensure: present
