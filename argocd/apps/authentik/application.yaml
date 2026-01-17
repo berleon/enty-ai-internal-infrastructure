@@ -18,13 +18,8 @@ spec:
             tailscale.com/expose: "true"
 
         authentik:
-          # Secret key and bootstrap credentials from secret
+          # Secret key from secret
           secret_key: "file:///secrets/config/secret_key"
-
-          # Bootstrap admin user (created on first startup)
-          bootstrap_password: "file:///secrets/config/bootstrap_password"
-          bootstrap_email: "file:///secrets/config/bootstrap_email"
-
           error_reporting:
             enabled: false  # Privacy-conscious
 
