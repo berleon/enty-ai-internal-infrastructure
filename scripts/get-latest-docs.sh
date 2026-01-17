@@ -30,7 +30,7 @@ declare -A DOCS=(
     ["kustomize-sops-README.md"]="https://raw.githubusercontent.com/viaduct-ai/kustomize-sops/refs/heads/master/README.md"
     ["terraform-hetzner-readme.md"]="https://raw.githubusercontent.com/mysticaltech/terraform-hcloud-kube-hetzner/refs/heads/master/README.md"
     ["authentik-helm-README.md"]="https://raw.githubusercontent.com/goauthentik/helm/refs/heads/main/charts/authentik/README.md"
-    ["postgresql-bitnami-README.md"]="https://raw.githubusercontent.com/bitnami/charts/refs/heads/main/bitnami/postgresql/README.md"
+    ["cloudnative-pg-README.md"]="https://raw.githubusercontent.com/cloudnative-pg/charts/refs/heads/main/charts/cloudnative-pg/README.md"
 )
 
 echo -e "${YELLOW}Documentation sources:${NC}\n"

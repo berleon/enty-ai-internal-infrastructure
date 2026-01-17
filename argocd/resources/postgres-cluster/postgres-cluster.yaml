@@ -1,0 +1,89 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: postgres-shared
+  namespace: database
+spec:
+  # Single instance for now (can scale to 3 for HA later)
+  instances: 1
+
+  # Use existing secret for superuser password
+  superuserSecret:
+    name: postgresql-shared-passwords
+
+  # PostgreSQL configuration
+  postgresql:
+    parameters:
+      # Memory settings optimized for 512Mi limit
+      shared_buffers: "128MB"              # 25% of memory
+      effective_cache_size: "384MB"        # 75% of memory
+      maintenance_work_mem: "32MB"         # Conservative
+      work_mem: "2MB"                      # Low per-connection memory
+
+      # Connection settings
+      max_connections: "100"               # Reasonable for shared DB
+
+      # WAL settings (minimal for single node)
+      wal_buffers: "4MB"
+      min_wal_size: "512MB"
+      max_wal_size: "2GB"
+
+      # Checkpoint settings
+      checkpoint_completion_target: "0.9"
+
+      # Query planner (SSD-optimized)
+      random_page_cost: "1.1"
+      effective_io_concurrency: "200"
+
+      # Logging (minimal for low overhead)
+      log_connections: "off"
+      log_disconnections: "off"
+      log_hostname: "off"
+      log_line_prefix: "%t [%p]: [%l-1] user=%u,db=%d,app=%a,client=%h "
+
+      # Autovacuum (conservative for low memory)
+      autovacuum_max_workers: "2"
+      autovacuum_naptime: "30s"
+
+  # Storage configuration (same as Bitnami)
+  storage:
+    size: 20Gi
+    storageClass: hcloud-volumes
+
+  # Resource limits (same as Bitnami)
+  resources:
+    requests:
+      cpu: 50m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+  # Bootstrap from scratch
+  bootstrap:
+    initdb:
+      database: postgres
+      owner: postgres
+      # No init scripts - databases created declaratively via Database CRDs
+
+  # Managed roles
+  managed:
+    roles:
+      - name: authentik
+        ensure: present
+        login: true
+        passwordSecret:
+          name: postgresql-shared-passwords
+          key: authentik-password
+      - name: forgejo
+        ensure: present
+        login: true
+        passwordSecret:
+          name: postgresql-shared-passwords
+          key: forgejo-password
+      - name: paperless
+        ensure: present
+        login: true
+        passwordSecret:
+          name: postgresql-shared-passwords
+          key: paperless-password

@@ -1,14 +1,16 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: postgresql-shared-secrets
+  name: postgres-cluster
   namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
 spec:
   project: default
   source:
     repoURL: https://github.com/berleon/enty-ai-internal-infrastructure.git
     targetRevision: main
-    path: argocd/resources/postgresql-shared-secrets
+    path: argocd/resources/postgres-cluster
   destination:
     server: https://kubernetes.default.svc
     namespace: database
