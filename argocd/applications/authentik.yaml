@@ -6,7 +6,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: oci://ghcr.io/goauthentik/helm
+    repoURL: https://charts.goauthentik.io
     targetRevision: '2025.12.1'
     chart: authentik
     helm:
