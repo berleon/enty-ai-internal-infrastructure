@@ -24,7 +24,7 @@ This repository contains infrastructure-as-code and deployment configuration for
 
 | Layer | Technology | Purpose |
 |-------|-----------|---------|
-| **Compute** | Hetzner Cloud (`cpx21` 3vCPU/4GB) | Cost-effective EU hosting (~€9/mo) in Nuremberg (nbg1) |
+| **Compute** | Hetzner Cloud (`cax11` 4vCPU/4GB **ARM64**) | Cost-effective ARM hosting (~€4.50/mo) in Helsinki (hel1) |
 | **OS** | Talos Linux | Immutable, auto-updating, minimal attack surface |
 | **Orchestration** | Kubernetes (via Talos) | Production-grade Kubernetes (not K3s) |
 | **Networking** | Tailscale | Private VPN mesh, no open ports, auto-HTTPS |
@@ -54,10 +54,55 @@ CronJob (Daily) → Backup to S3
 ### Critical Design Decisions
 
 1. **Single Node** (not HA): Cheaper, simpler, sufficient for private infrastructure. Data persists via Hetzner Volumes.
-2. **No Public Ports**: All access via Tailscale private VPN. SSH, API, Forgejo only accessible from your tailnet.
-3. **Talos Auto-Updates**: Node reboots automatically, survives boot failures. Zero manual OS patching.
-4. **GitOps Only (Argo CD)**: Config lives in this repo. If K8s dies, re-apply Argo CD and it rebuilds itself. **NEVER use `kubectl apply` directly** - it breaks GitOps.
-5. **SOPS Dual-Key**: Yubikey for manual decryption, age key for automatic Argo CD decryption.
+2. **ARM64 Architecture**: Using Ampere Altra ARM CPUs (CAX11) for cost efficiency. All container images must support `linux/arm64`.
+3. **No Public Ports**: All access via Tailscale private VPN. SSH, API, Forgejo only accessible from your tailnet.
+4. **Talos Auto-Updates**: Node reboots automatically, survives boot failures. Zero manual OS patching.
+5. **GitOps Only (Argo CD)**: Config lives in this repo. If K8s dies, re-apply Argo CD and it rebuilds itself. **NEVER use `kubectl apply` directly** - it breaks GitOps.
+6. **SOPS Dual-Key**: Yubikey for manual decryption, age key for automatic Argo CD decryption.
+7. **Shared PostgreSQL**: Single PostgreSQL instance serves all applications (Forgejo, Authentik, Paperless-NGX, etc.) to minimize memory footprint on 4GB node.
+
+### Resource Constraints & Management
+
+**Current Node:** CAX11 (4 vCPU ARM64, 4GB RAM, ~3GB usable after K8s overhead)
+
+**Resource Strategy:**
+- **Shared PostgreSQL**: ~800Mi-1Gi for all databases (vs 1.5-2GB for per-service instances)
+- **Aggressive limits**: All services get explicit memory/CPU limits
+- **No autoscaling**: Single-node can't scale horizontally
+- **Monitoring**: Use `kubectl top nodes` to track usage
+
+**Typical Memory Allocation (with shared PostgreSQL):**
+```
+System (K8s, Talos, CNI):     ~800Mi
+PostgreSQL (shared):          ~800Mi
+Argo CD:                      ~300Mi
+Tailscale:                    ~100Mi
+Forgejo:                      ~500Mi
+Authentik (server+worker):    ~1Gi
+Paperless-NGX:                ~600Mi
+Buffer/Cache:                 ~200Mi
+-----------------------------------
+Total:                        ~4.3Gi (requires careful tuning)
+```
+
+**Upgrade Path:** If consistently >90% memory, upgrade to CAX21 (8GB ARM, ~€8.50/mo) or CAX31 (16GB ARM, ~€16/mo).
+
+### ARM64 Compatibility Checklist
+
+When adding new services, verify:
+1. **Multi-arch support**: Check Docker Hub for `linux/arm64` tag
+2. **Helm chart compatibility**: Ensure chart doesn't hardcode `amd64`
+3. **Upstream testing**: Check if project officially supports ARM
+4. **Performance**: ARM64 is excellent for web services, but some x86-specific optimizations may not apply
+
+**Known Working (ARM64):**
+- ✅ Talos OS (native ARM support)
+- ✅ Forgejo (official multi-arch images)
+- ✅ Argo CD (official multi-arch)
+- ✅ PostgreSQL (official multi-arch)
+- ✅ Authentik (official multi-arch since 2023.8)
+- ✅ Paperless-NGX (official multi-arch)
+- ✅ Tailscale (native ARM support)
 
 ---
 

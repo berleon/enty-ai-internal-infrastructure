@@ -28,7 +28,9 @@ declare -A DOCS=(
     ["talos-os-quickstart.md"]="https://www.talos.dev/latest/introduction/quickstart/"
     ["kubernetes-security.md"]="https://kubernetes.io/docs/concepts/security/"
     ["kustomize-sops-README.md"]="https://raw.githubusercontent.com/viaduct-ai/kustomize-sops/refs/heads/master/README.md"
-    ["terraform-hetzner-readme.md"]="https://raw.githubusercontent.com/lorenzodonini/terraform-hetzner/main/README.md"
+    ["terraform-hetzner-readme.md"]="https://raw.githubusercontent.com/mysticaltech/terraform-hcloud-kube-hetzner/refs/heads/master/README.md"
+    ["authentik-helm-README.md"]="https://raw.githubusercontent.com/goauthentik/helm/refs/heads/main/charts/authentik/README.md"
+    ["postgresql-bitnami-README.md"]="https://raw.githubusercontent.com/bitnami/charts/refs/heads/main/bitnami/postgresql/README.md"
 )
 
 echo -e "${YELLOW}Documentation sources:${NC}\n"
