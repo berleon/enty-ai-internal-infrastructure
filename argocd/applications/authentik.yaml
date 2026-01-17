@@ -48,7 +48,7 @@ spec:
                 secretName: authentik-config
             - name: postgres-secret
               secret:
-                secretName: authentik-db-password
+                secretName: authentik-postgres-credentials
                 items:
                   - key: password
                     path: password
@@ -78,7 +78,7 @@ spec:
                 secretName: authentik-config
             - name: postgres-secret
               secret:
-                secretName: authentik-db-password
+                secretName: authentik-postgres-credentials
                 items:
                   - key: password
                     path: password

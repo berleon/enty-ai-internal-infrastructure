@@ -86,7 +86,7 @@ spec:
               valueFrom:
                 secretKeyRef:
                   name: forgejo-postgres-credentials
-                  key: forgejo-password
+                  key: password
             # OAuth Authentik configuration
             - name: FORGEJO__OAUTH2_CLIENT__REGISTER_EMAIL_CONFIRM
               value: "false"
