@@ -28,9 +28,7 @@ spec:
             requests:
               cpu: 50m
               memory: 256Mi
-            limits:
-              cpu: 500m
-              memory: 1Gi  # OOMKilled at 512Mi during initial sync of 12 apps, needs headroom
+            # No limits during bootstrap - will add back once stable
 
 ---
 # Repo Server (Deployment)
