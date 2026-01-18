@@ -31,6 +31,11 @@ spec:
             user: "authentik"
             password: "file:///secrets/postgres/password"
 
+        # Configure environment variables for all components
+        env:
+          AUTHENTIK_HOST: "authentik.tail36258d.ts.net"
+          AUTHENTIK_INSECURE: "false"
+
         server:
           replicas: 1
           resources:
@@ -40,13 +45,6 @@ spec:
             limits:
               cpu: 500m
               memory: 800Mi
-
-          # Configure external URL for OAuth redirects
-          env:
-            - name: AUTHENTIK_HOST
-              value: "authentik.tail36258d.ts.net"
-            - name: AUTHENTIK_INSECURE
-              value: "false"  # Using HTTPS via Tailscale
 
           # Mount PostgreSQL secret
           volumes:
@@ -71,13 +69,6 @@ spec:
             limits:
               cpu: 500m
               memory: 600Mi
-
-          # Configure external URL for OAuth redirects
-          env:
-            - name: AUTHENTIK_HOST
-              value: "authentik.tail36258d.ts.net"
-            - name: AUTHENTIK_INSECURE
-              value: "false"  # Using HTTPS via Tailscale
 
           # Mount PostgreSQL secret
           volumes:
