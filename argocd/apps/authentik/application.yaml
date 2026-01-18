@@ -18,8 +18,8 @@ spec:
             tailscale.com/expose: "true"
 
         authentik:
-          # Secret key from secret
-          secret_key: "file:///secrets/config/secret_key"
+          # Generate a random secret key on first startup
+          # Note: This will be auto-generated and persisted in the database
           error_reporting:
             enabled: false  # Privacy-conscious
 
@@ -41,11 +41,15 @@ spec:
               cpu: 500m
               memory: 800Mi
 
-          # Mount secrets
+          # Configure external URL for OAuth redirects
+          env:
+            - name: AUTHENTIK_HOST
+              value: "authentik.tail36258d.ts.net"
+            - name: AUTHENTIK_INSECURE
+              value: "false"  # Using HTTPS via Tailscale
+
+          # Mount PostgreSQL secret
           volumes:
-            - name: config-secret
-              secret:
-                secretName: authentik-config
             - name: postgres-secret
               secret:
                 secretName: authentik-postgres-credentials
@@ -54,9 +58,6 @@ spec:
                     path: password
 
           volumeMounts:
-            - name: config-secret
-              mountPath: /secrets/config
-              readOnly: true
             - name: postgres-secret
               mountPath: /secrets/postgres
               readOnly: true
@@ -71,11 +72,15 @@ spec:
               cpu: 500m
               memory: 600Mi
 
-          # Mount secrets
+          # Configure external URL for OAuth redirects
+          env:
+            - name: AUTHENTIK_HOST
+              value: "authentik.tail36258d.ts.net"
+            - name: AUTHENTIK_INSECURE
+              value: "false"  # Using HTTPS via Tailscale
+
+          # Mount PostgreSQL secret
           volumes:
-            - name: config-secret
-              secret:
-                secretName: authentik-config
             - name: postgres-secret
               secret:
                 secretName: authentik-postgres-credentials
@@ -84,9 +89,6 @@ spec:
                     path: password
 
           volumeMounts:
-            - name: config-secret
-              mountPath: /secrets/config
-              readOnly: true
             - name: postgres-secret
               mountPath: /secrets/postgres
               readOnly: true
