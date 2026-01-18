@@ -31,11 +31,6 @@ spec:
             user: "authentik"
             password: "file:///secrets/postgres/password"
 
-        # Configure environment variables for all components
-        env:
-          AUTHENTIK_HOST: "authentik.tail36258d.ts.net"
-          AUTHENTIK_INSECURE: "false"
-
         server:
           replicas: 1
           resources:
